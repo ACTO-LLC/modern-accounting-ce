@@ -1,0 +1,16 @@
+# Modern Accounting CE — one-box self-host stub (Phase 0)
+# Full service wiring lands in a later CE export. No Stripe/Plaid/agent-write/RCM.
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set in .env.ce}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - ce-mssql:/var/opt/mssql
+  # app / dab / client: added when CE runtime tree is exported
+
+volumes:
+  ce-mssql:
