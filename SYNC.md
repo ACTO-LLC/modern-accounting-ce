@@ -57,11 +57,31 @@
 3. No Stripe secrets, payment webhooks, agent GitHub write paths, or RCM join adapters as dead code in CE.
 4. No automated private→public mirror CI in Phase 0.
 
+## Prefer include (CE sync-in checklist)
+
+- Milton read-only BYO LLM; CSV bank import; basic SMTP invoice email
+- Docker Compose CE one-box + CE-only `.env.example` (no paid secrets)
+- #630 cost-control **scripts only** (not productized managed cloud UI)
+- Single-company core ledger paths
+- ADR-0001 + CE vs paid feature matrix under `docs/`
+
+## Must exclude (stay private — checklist)
+
+- Managed cloud start/pause UI + SLA / ACTO control plane
+- Agent paths that write code / open PRs (beyond the “write-agent” label)
+- Entra ID / B2C SSO + MFA packaging (if not already covered by SSO row)
+- Stripe Pay on Invoice; Books Match; ZTB depth; live QBO; multi-company; RCM / Practice OS join (#702)
+- Secrets and commercial license body
+
+## Architecture rule (ADR)
+
+CE builds **strip or stub** paid packages — not UI-only hides; no dead Stripe/RCM/agent adapters in the CE tree.
+
 ## Verify before merge
 
 ```bash
 # From CE worktree — expect no paid markers or secrets
-rg -i 'stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|rcm.?join' --glob '!.git'
+rg -i 'stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|RCM|Fluent.?MedOps|monitor.?agent|Entra|B2C|github.*pull' --glob '!.git'
 # Never commit real .env
 test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 ```

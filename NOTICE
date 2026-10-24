@@ -5,8 +5,19 @@ This product includes software developed by ACTO-LLC.
 Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 See the LICENSE file for the full license text.
 
-Commercial / paid Modern Accounting features (including but not limited to
-Stripe Pay on Invoice, Books Match / Switch Guarantee, Zero-Touch Banking,
-live QuickBooks Online integration, write-agent, SSO, multi-company, and RCM)
-are NOT included in this Community Edition and remain proprietary to ACTO-LLC
-in the private product repository.
+Commercial / paid Modern Accounting features are NOT included in this
+Community Edition. They remain proprietary to ACTO-LLC in the private
+product repository `ACTO-LLC/modern-accounting`, including but not limited to:
+
+  - Multi-company / tenancy hardening
+  - Pay on Invoice (Stripe Checkout, webhooks, settings)
+  - Switch / Books Match
+  - Zero-Touch Banking depth (confidence approve-all, weekly brief, prod Plaid packaging)
+  - Live QuickBooks Online sync
+  - Monitor-agent that writes code / opens PRs
+  - Entra ID / B2C SSO and MFA product packaging
+  - Practice OS / medical RCM join (Fluent MedOps ↔ MA, ClaimId / #702-class)
+  - Managed cloud start/pause UI and SLA / ACTO control plane
+  - Support SLA tooling
+
+See ADR-0001 and the CE vs paid feature matrix under docs/ when present.
