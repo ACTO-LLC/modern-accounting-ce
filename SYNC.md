@@ -2,87 +2,67 @@
 
 **Private source:** `ACTO-LLC/modern-accounting`  
 **Public CE:** `ACTO-LLC/modern-accounting-ce`  
-**Cadence:** Manual. **No automated mirror CI** in Phase 0.  
-**Policy:** [ADR-0001](./docs/architecture/adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](./docs/prd/ce-vs-paid-feature-matrix.md)
+**Cadence:** Manual. **No automated mirror CI** yet.  
+**Policy:** [ADR-0001](./docs/architecture/adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](./docs/prd/ce-vs-paid-feature-matrix.md)  
+**Seams (Phase 1a):** Path allow/deny, stub contracts, and Compose target live in private [`docs/architecture/ce-seams.md`](https://github.com/ACTO-LLC/modern-accounting/blob/main/docs/architecture/ce-seams.md) (mirrored below after merge). A copy may also land at `docs/architecture/ce-seams.md` in this repo when the private PR merges.
 
 ## When to sync
 
 - After CE-safe fixes land on private `main`
 - Before a tagged CE release (`ce-vX.Y.Z`)
-- When Architect/DevOps opens a Phase N export ticket
+- When Architect/DevOps opens a Phase N export ticket (**PR → Architect review → merge**)
 
 ## One-shot procedure
 
 1. Check out a clean private `main` (or release tag). Record the private commit SHA.
-2. Copy **only** the CE allowlist (below) into a clean worktree of `modern-accounting-ce` — do **not** mirror the full monorepo.
-3. Refresh root `LICENSE` (AGPL-3.0), `NOTICE`, and this `SYNC.md` if the strip list changed.
-4. Keep CE `README.md` CE-only (no paid entitlements presented as included).
-5. Scrub secrets before PR (see Verify).
-6. Open a PR on `modern-accounting-ce` → Architect review → merge.
+2. Copy **only** the CE allowlist from `ce-seams.md` — do **not** mirror the full monorepo.
+3. Inside allowlisted dirs, **omit/stub** file-level denylist entries (Plaid jobs, live QBO auth, Stripe, RCM adjudication, etc.).
+4. Refresh root `LICENSE` (AGPL-3.0), `NOTICE`, and this `SYNC.md` if the strip list changed.
+5. Keep CE `README.md` CE-only.
+6. Scrub secrets; open a PR on `modern-accounting-ce` → Architect review → merge.
 
-## Sync **in** (CE — AGPL)
+## Path allowlist (summary)
 
-| Area | Notes |
+| Path | Notes |
 |------|--------|
-| Core ledger | COA, journals, invoices / bills / estimates, AR/AP, standard reports |
-| Single-company | Only; no multi-co tenancy |
-| Docker Compose one-box | Local / self-host stubs in this repo |
-| Local / simple auth | `BYPASS_AUTH` / documented local accounts — not Entra/B2C |
-| CSV bank import | CE |
-| Basic SMTP invoice email | CE |
-| Milton read-only Q&A | **BYO** LLM API key only |
-| One-shot QBO import/export | Optional CE; **not** live QBO sync |
-| Docs | Self-host, ADR-0001, CE vs paid matrix, #630 **scripts-only** pause/unpause notes |
-| CE `.env.example` | Placeholders only — no real secrets |
+| `database/` | Core schema; strip paid-only migrations if any |
+| `client/` | Strip paid UI |
+| `chat-api/` | Strip paid modules (Plaid, live QBO, Stripe, RCM join adapters) |
+| `csv-import-api/` | CE |
+| `email-api/` | Basic SMTP |
+| `dab-config*.json` | Review entities |
+| `.devcontainer/` (db-init as needed) | Compose init |
+| `docs/` CE subset | ADR, matrix, self-host scripts-only |
+| `scripts/` CE-safe | #630 scripts-only |
+| Root CE license/Compose/env | Already present |
 
-## Stay **private** (paid / commercial — never sync)
+**Optional / deferred:** `ma-mcp-server/` (if read-only CE-safe); one-shot QBO; never `monitor-agent/`, `infra/`, live `qbo-mcp-http-server/` until approved.
 
-| Area | Notes |
-|------|--------|
-| Pay on Invoice / Stripe | Checkout, webhooks, settings, `STRIPE_*` |
-| Switch / Books Match | Cutover / confidence product |
-| Zero-Touch Banking | Confidence approve, weekly brief, **prod** Plaid packaging |
-| Live QBO sync | Production QuickBooks Online paths |
-| Write-agent / monitor-agent writes | Code-writing agent, PR-opening tooling |
-| Entra ID / B2C SSO, MFA packaging | Enterprise SSO |
-| Multi-company / tenancy hardening | Paid |
-| Practice OS / medical RCM join | Fluent MedOps ↔ MA, ClaimId / #702-class |
-| Managed cloud start/pause UI + SLA | #630 **productized** UI — CE gets scripts-only |
-| Support SLA / ACTO control plane | Hosted |
+## Path denylist (never sync)
 
-## Architecture rules (from ADR)
+`monitor-agent/`, `infra/`, `functions/` (default until proven CE-safe), live QBO MCP server, secrets, commercial license body.
+
+## Stub policy
+
+Prefer **export omit** over UI-only hide. Shared leftovers → CE no-op facade, **no** paid SDKs/secrets.
+
+## Compose target (Phase 1b)
+
+**In:** database, db-init, dab, email-api, csv-import-api (as applicable), chat-api (stripped), client (stripped).  
+**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane.
+
+## Architecture rules (ADR)
 
 1. One schema family — no permanent CE DB fork.
 2. CE builds **strip or stub** paid packages — not UI-only hides.
 3. No Stripe secrets, payment webhooks, agent GitHub write paths, or RCM join adapters as dead code in CE.
-4. No automated private→public mirror CI in Phase 0.
-
-## Prefer include (CE sync-in checklist)
-
-- Milton read-only BYO LLM; CSV bank import; basic SMTP invoice email
-- Docker Compose CE one-box + CE-only `.env.example` (no paid secrets)
-- #630 cost-control **scripts only** (not productized managed cloud UI)
-- Single-company core ledger paths
-- ADR-0001 + CE vs paid feature matrix under `docs/`
-
-## Must exclude (stay private — checklist)
-
-- Managed cloud start/pause UI + SLA / ACTO control plane
-- Agent paths that write code / open PRs (beyond the “write-agent” label)
-- Entra ID / B2C SSO + MFA packaging (if not already covered by SSO row)
-- Stripe Pay on Invoice; Books Match; ZTB depth; live QBO; multi-company; RCM / Practice OS join (#702)
-- Secrets and commercial license body
-
-## Architecture rule (ADR)
-
-CE builds **strip or stub** paid packages — not UI-only hides; no dead Stripe/RCM/agent adapters in the CE tree.
+4. No automated private→public mirror CI in Phase 1a.
 
 ## Verify before merge
 
 ```bash
-# From CE worktree — expect no paid markers or secrets
-rg -i 'stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|RCM|Fluent.?MedOps|monitor.?agent|Entra|B2C|github.*pull' --glob '!.git'
-# Never commit real .env
+rg -i 'stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|RCM|Fluent.?MedOps|monitor.?agent|Entra|B2C' --glob '!.git'
+rg -i 'plaid-service|plaid-sync|GITHUB_TOKEN|monitor-agent' --glob '!.git'
 test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 ```
 
@@ -90,3 +70,4 @@ test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 
 - Tag CE releases as `ce-vX.Y.Z`
 - Record private source commit SHA in the CE PR description (optional: `SYNC-SOURCE.txt`)
+
