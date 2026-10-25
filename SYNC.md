@@ -4,7 +4,8 @@
 **Public CE:** `ACTO-LLC/modern-accounting-ce`  
 **Cadence:** Manual. **No automated mirror CI** yet.  
 **Policy:** [ADR-0001](./docs/architecture/adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](./docs/prd/ce-vs-paid-feature-matrix.md)  
-**Seams (Phase 1a):** [docs/architecture/ce-seams.md](./docs/architecture/ce-seams.md) (mirrored from private) — path allow/deny, stub contracts, Compose target.
+**Seams (Phase 1a):** [docs/architecture/ce-seams.md](./docs/architecture/ce-seams.md) (mirrored from private) — path allow/deny, stub contracts, Compose target.  
+**Phase 1b strip plan:** [docs/architecture/ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md) — chat-api + client file/route omit contracts (**Dev implement HOLD**; docs only until PM greenlights).
 
 ## When to sync
 
@@ -47,13 +48,19 @@
 
 Prefer **export omit** over UI-only hide. Shared leftovers → CE no-op facade, **no** paid SDKs/secrets. CE builds **strip or stub** paid packages — not UI-only hides; no dead Stripe/RCM/agent adapters in the CE tree.
 
+Concrete chat-api/client file lists + route prefixes: [ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md). Core AR receive-payment / AP bill-pay stay in CE; Stripe Online Payments / Plaid / live QBO / RCM join / write-agent admin do not.
+
 ## Compose target (Slice B runtime export)
 
 **In (exported):** database, db-init, dab, email-api, csv-import-api.  
-**HOLD (not exported — needs Dev 1b strip):** chat-api, client.  
+**HOLD (not exported — needs Dev 1b strip per [ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md)):** chat-api, client.  
 **Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane, ma-mcp (until Architect review).
 
 See `docker-compose.ce.yml` + `docs/self-host/ce-boot.md`. Private source SHA: `SYNC-SOURCE.txt`.
+
+### Phase 1b plan note (2026-10-25)
+
+Architect documented exact omit/stub contracts for a future chat-api/client export. **No chat-api/client trees in CE yet.** Developer Phase 1b remains **HOLD** until PM greenlights implement. After that export, `./scripts/assert-ce-paid-leak.sh` + `CE_BUILD` checks in the strip plan must pass before merge.
 
 ## Verify before merge
 
