@@ -1,0 +1,400 @@
+import { Link } from 'react-router-dom';
+import { TrendingUp, Scale, List, Clock, ClipboardList, DollarSign, Receipt, CreditCard, FileText, Users, FileSearch, Car, BookOpen, Package, AlertTriangle, Clipboard, ShoppingCart, ArrowRightLeft, Briefcase, Stethoscope, LucideIcon } from 'lucide-react';
+import { useFeatureFlags, FeatureKey } from '../contexts/FeatureFlagsContext';
+
+interface ReportItem {
+  name: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  color: string;
+  visibilityFlag?: FeatureKey; // Admin-configurable feature flag
+}
+
+const reports: ReportItem[] = [
+  {
+    name: 'Profit & Loss',
+    description: 'Income statement showing revenues, expenses, and net income over a period',
+    href: '/reports/profit-loss',
+    icon: TrendingUp,
+    color: 'bg-green-100 text-green-600',
+  },
+  {
+    name: 'Balance Sheet',
+    description: 'Statement of financial position showing assets, liabilities, and equity',
+    href: '/reports/balance-sheet',
+    icon: Scale,
+    color: 'bg-blue-100 text-blue-600',
+  },
+  {
+    name: 'Statement of Cash Flows',
+    description: 'Cash inflows and outflows from operating, investing, and financing activities',
+    href: '/reports/cash-flow',
+    icon: ArrowRightLeft,
+    color: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    name: 'Trial Balance',
+    description: 'List of all accounts with their debit and credit balances',
+    href: '/reports/trial-balance',
+    icon: List,
+    color: 'bg-purple-100 text-purple-600',
+  },
+  {
+    name: 'General Ledger',
+    description: 'All transactions by account with running balances and beginning/ending balances',
+    href: '/reports/general-ledger',
+    icon: BookOpen,
+    color: 'bg-slate-100 text-slate-600',
+  },
+  {
+    name: 'Transaction Detail by Account',
+    description: 'All transactions affecting specific accounts with full details',
+    href: '/reports/transaction-detail',
+    icon: FileSearch,
+    color: 'bg-cyan-100 text-cyan-600',
+  },
+  {
+    name: 'AR Aging Summary',
+    description: 'Outstanding customer invoices organized by age',
+    href: '/reports/ar-aging',
+    icon: Clock,
+    color: 'bg-orange-100 text-orange-600',
+  },
+  {
+    name: 'AP Aging Summary',
+    description: 'Outstanding vendor bills organized by age',
+    href: '/reports/ap-aging',
+    icon: ClipboardList,
+    color: 'bg-red-100 text-red-600',
+  },
+  {
+    name: 'Customer Statement',
+    description: 'Account activity and outstanding balances for a customer',
+    href: '/reports/customer-statement',
+    icon: Users,
+    color: 'bg-cyan-100 text-cyan-600',
+  },
+  {
+    name: 'Payroll Summary',
+    description: 'Summary of payroll runs, gross pay, deductions, and net pay',
+    href: '/reports/payroll-summary',
+    icon: DollarSign,
+    color: 'bg-teal-100 text-teal-600',
+    visibilityFlag: 'payroll',
+  },
+  {
+    name: 'Sales Tax Liability',
+    description: 'Tax collected on invoices by tax rate and period',
+    href: '/reports/sales-tax',
+    icon: Receipt,
+    color: 'bg-rose-100 text-rose-600',
+  },
+  {
+    name: 'Expense Report',
+    description: 'Expenses grouped by category, vendor, or project',
+    href: '/reports/expenses',
+    icon: CreditCard,
+    color: 'bg-amber-100 text-amber-600',
+  },
+  {
+    name: 'Mileage Report',
+    description: 'Business mileage summary with tax deduction calculations',
+    href: '/reports/mileage',
+    icon: Car,
+    color: 'bg-lime-100 text-lime-600',
+    visibilityFlag: 'mileage',
+  },
+  {
+    name: 'Tax Forms (W-2/1099)',
+    description: 'Generate W-2 forms for employees and 1099-NEC for contractors',
+    href: '/tax-forms',
+    icon: FileText,
+    color: 'bg-indigo-100 text-indigo-600',
+    visibilityFlag: 'payroll',
+  },
+];
+
+const salesReports: ReportItem[] = [
+  {
+    name: 'Sales by Customer',
+    description: 'Sales breakdown showing customer, invoice count, amount, and percentage of total sales',
+    href: '/reports/sales-by-customer',
+    icon: Users,
+    color: 'bg-indigo-100 text-indigo-600',
+  },
+  {
+    name: 'Sales by Product/Service',
+    description: 'Sales breakdown showing product/service, quantity sold, amount, and percentage of sales',
+    href: '/reports/sales-by-product',
+    icon: ShoppingCart,
+    color: 'bg-emerald-100 text-emerald-600',
+  },
+];
+
+const jobCostingReports: ReportItem[] = [
+  {
+    name: 'Job Profitability',
+    description: 'Revenue, cost, and gross margin per job with optional committed-cost toggle',
+    href: '/reports/job-profitability',
+    icon: Briefcase,
+    color: 'bg-indigo-100 text-indigo-600',
+    visibilityFlag: 'job_costing',
+  },
+  {
+    name: 'Budget vs. Actual by Cost Code',
+    description: 'Per-job breakdown of budget, committed, actual, variance, and % used by line item',
+    href: '/reports/job-budget-actual',
+    icon: Scale,
+    color: 'bg-amber-100 text-amber-600',
+    visibilityFlag: 'job_costing',
+  },
+  {
+    name: 'Work in Progress',
+    description: 'Earned vs. billed revenue per job (cost-to-cost) — pending accountant review',
+    href: '/reports/wip',
+    icon: TrendingUp,
+    color: 'bg-rose-100 text-rose-600',
+    visibilityFlag: 'job_costing',
+  },
+  {
+    name: 'Unbilled Costs',
+    description: 'Billable costs posted to jobs but not yet pulled onto a customer invoice',
+    href: '/reports/unbilled-costs',
+    icon: Receipt,
+    color: 'bg-emerald-100 text-emerald-600',
+    visibilityFlag: 'job_costing',
+  },
+];
+
+const medicalRcmReports: ReportItem[] = [
+  {
+    name: 'A/R Aging by Payer',
+    description: 'Outstanding receivables split between insurance payers and patients, each aged on its own clock',
+    href: '/reports/ar-aging-by-payer',
+    icon: Stethoscope,
+    color: 'bg-blue-100 text-blue-600',
+    visibilityFlag: 'medical_rcm',
+  },
+  {
+    name: 'Patient Statements',
+    description: 'Patient-responsibility statements (after insurance) with a running balance, plus configurable overdue dunning',
+    href: '/reports/patient-statements',
+    icon: Stethoscope,
+    color: 'bg-blue-100 text-blue-600',
+    visibilityFlag: 'medical_rcm',
+  },
+  {
+    name: 'A/R Aging by Case',
+    description: "Long-dated personal-injury / workers'-comp receivables aged by case and by attorney",
+    href: '/reports/ar-aging-by-case',
+    icon: Stethoscope,
+    color: 'bg-blue-100 text-blue-600',
+    visibilityFlag: 'medical_rcm',
+  },
+];
+
+const inventoryReports: ReportItem[] = [
+  {
+    name: 'Inventory Valuation Summary',
+    description: 'Shows product, SKU, quantity on hand, average cost, and asset value',
+    href: '/reports/inventory-valuation',
+    icon: Package,
+    color: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    name: 'Inventory Stock Status',
+    description: 'Shows on hand, committed, available quantities with reorder alerts',
+    href: '/reports/inventory-stock-status',
+    icon: AlertTriangle,
+    color: 'bg-amber-100 text-amber-600',
+  },
+  {
+    name: 'Physical Inventory Worksheet',
+    description: 'Printable worksheet for cycle counting with Excel export',
+    href: '/reports/physical-inventory',
+    icon: Clipboard,
+    color: 'bg-sky-100 text-sky-600',
+  },
+];
+
+export default function Reports() {
+  const { isFeatureEnabled } = useFeatureFlags();
+
+  // Filter reports based on feature flags
+  const visibleReports = reports.filter(
+    (report) => !report.visibilityFlag || isFeatureEnabled(report.visibilityFlag)
+  );
+
+  const visibleInventoryReports = inventoryReports.filter(
+    (report) => !report.visibilityFlag || isFeatureEnabled(report.visibilityFlag)
+  );
+
+  const visibleJobCostingReports = jobCostingReports.filter(
+    (report) => !report.visibilityFlag || isFeatureEnabled(report.visibilityFlag)
+  );
+
+  const visibleMedicalRcmReports = medicalRcmReports.filter(
+    (report) => !report.visibilityFlag || isFeatureEnabled(report.visibilityFlag)
+  );
+
+  // Only show inventory section if inventory feature is enabled
+  const showInventorySection = isFeatureEnabled('inventory') && visibleInventoryReports.length > 0;
+  const showJobCostingSection = isFeatureEnabled('job_costing') && visibleJobCostingReports.length > 0;
+  const showMedicalRcmSection = isFeatureEnabled('medical_rcm') && visibleMedicalRcmReports.length > 0;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Financial Reports</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Generate and view financial reports for your business
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {visibleReports.map((report) => (
+          <Link
+            key={report.name}
+            to={report.href}
+            className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${report.color}`}>
+                <report.icon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{report.name}</h2>
+                <p className="mt-1 text-sm text-gray-500">{report.description}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Sales Reports Section */}
+      <div className="mt-10 mb-6">
+        <h2 className="text-xl font-bold text-gray-900">Sales Reports</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Analyze sales by customer, product, and time period
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {salesReports.map((report) => (
+          <Link
+            key={report.name}
+            to={report.href}
+            className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${report.color}`}>
+                <report.icon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{report.name}</h2>
+                <p className="mt-1 text-sm text-gray-500">{report.description}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Job Costing Reports Section - only shown if job_costing feature is enabled */}
+      {showJobCostingSection && (
+        <>
+          <div className="mt-10 mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Job Costing Reports</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Track profitability and budget performance per job
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {visibleJobCostingReports.map((report) => (
+              <Link
+                key={report.name}
+                to={report.href}
+                className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-lg ${report.color}`}>
+                    <report.icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{report.name}</h2>
+                    <p className="mt-1 text-sm text-gray-500">{report.description}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Practice OS medical reports section - only shown if medical_rcm feature is enabled */}
+      {showMedicalRcmSection && (
+        <>
+          <div className="mt-10 mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Practice OS Medical Reports</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Revenue cycle reporting split across insurance payers and patients
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {visibleMedicalRcmReports.map((report) => (
+              <Link
+                key={report.name}
+                to={report.href}
+                className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-lg ${report.color}`}>
+                    <report.icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{report.name}</h2>
+                    <p className="mt-1 text-sm text-gray-500">{report.description}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Inventory Reports Section - only shown if inventory feature is enabled */}
+      {showInventorySection && (
+        <>
+          <div className="mt-10 mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Inventory Reports</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Track stock levels, valuation, and movement
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {visibleInventoryReports.map((report) => (
+              <Link
+                key={report.name}
+                to={report.href}
+                className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-lg ${report.color}`}>
+                    <report.icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{report.name}</h2>
+                    <p className="mt-1 text-sm text-gray-500">{report.description}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

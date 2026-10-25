@@ -1,12 +1,11 @@
-# Modern Accounting CE — Compose target (Slice B runtime export)
+# Modern Accounting CE — Compose target (chat-api/client export post Dev 1b)
 # Source of truth: docs/architecture/ce-seams.md (+ private same path)
-# Out of CE Compose: agent-write profile, live QBO MCP, managed control-plane,
-# chat-api/client (HOLD — needs Developer Phase 1b strip; not in this export).
+# Out of CE Compose: agent-write profile, live QBO MCP, managed control-plane, ma-mcp (deferred).
 #
 # Usage:
 #   cp .env.ce.example .env.ce   # then edit locally; never commit .env.ce
 #   docker compose -f docker-compose.ce.yml --env-file .env.ce up
-#   docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up
+#   docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up --build
 #
 # See docs/self-host/ce-boot.md
 
@@ -97,10 +96,67 @@ services:
       AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
 
-  # chat-api / client: HOLD for Developer Phase 1b strip (not exported in Slice B)
-  # ma-mcp: maybe — Architect review before enable
+  chat-api:
+    profiles: ["app"]
+    build:
+      context: ./chat-api
+      dockerfile: Dockerfile
+    container_name: ma-ce-chat-api
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      dab:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      NODE_ENV: development
+      CE_BUILD: ${CE_BUILD:-true}
+      BYPASS_AUTH: ${BYPASS_AUTH:-true}
+      SQL_SERVER: database
+      SQL_PORT: "1433"
+      SQL_USER: sa
+      SQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}
+      SQL_DATABASE: AccountingDB
+      DAB_API_URL: http://dab:5000/api
+      DAB_URL: http://dab:5000
+      DAB_REST_URL: http://dab:5000/api
+      DAB_MCP_URL: http://dab:5000/mcp
+      APP_URL: ${APP_BASE_URL:-http://localhost:5173}
+      # Optional Milton BYO LLM
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
+      # Intentionally unset in CE: live QBO MCP, ma-mcp, agent GitHub write tokens, bank-link secrets
+
+  client:
+    profiles: ["app"]
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: ma-ce-client
+    depends_on:
+      - chat-api
+    ports:
+      - "5173:5173"
+    environment:
+      # Browser calls published host ports (not Docker DNS names)
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+      VITE_CHAT_API_URL: ${VITE_API_URL:-http://localhost:8080}
+      VITE_EMAIL_API_URL: ${VITE_EMAIL_API_URL:-http://localhost:7073}
+      VITE_DAB_URL: ${VITE_DAB_URL:-http://localhost:5000}
+      VITE_BYPASS_AUTH: ${VITE_BYPASS_AUTH:-true}
+      VITE_CE_BUILD: ${VITE_CE_BUILD:-true}
+      VITE_PORT: "5173"
+    volumes:
+      # vite.config reads monorepo root package.json for __APP_VERSION__
+      - ./package.json:/package.json:ro
+
+  # ma-mcp: deferred — Architect review before enable
   # live QBO MCP: out of CE
-  # agent-write service: out of CE
+  # agent-write profile and enhancement agent service: out of CE
 
 volumes:
   ce-sql-data:

@@ -1,0 +1,433 @@
+import axios from 'axios';
+import { PublicClientApplication, SilentRequest, AccountInfo } from '@azure/msal-browser';
+import { apiRequest, roleHierarchy } from './authConfig';
+import { formatDateForOData } from './dateUtils';
+import { formatGuidForOData } from './validation';
+
+const api = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Resolve the highest DAB role from Azure AD token claims
+function resolveDabRole(account: AccountInfo): string {
+  const roles = (account.idTokenClaims as any)?.roles as string[] | undefined;
+  if (roles?.length) {
+    // Return the highest role per the hierarchy
+    for (let i = roleHierarchy.length - 1; i >= 0; i--) {
+      if (roles.includes(roleHierarchy[i])) return roleHierarchy[i];
+    }
+  }
+  return 'authenticated';
+}
+
+// Store the MSAL instance for use in interceptors
+let msalInstance: PublicClientApplication | null = null;
+
+// Store the current tenant ID for multi-tenant requests
+let currentTenantId: string | null = null;
+
+// Initialize the API with MSAL instance for token injection
+export function initializeApiAuth(instance: PublicClientApplication) {
+  msalInstance = instance;
+}
+
+// Set the current tenant ID for API requests
+export function setCurrentTenantId(tenantId: string | null) {
+  currentTenantId = tenantId;
+}
+
+// Get the current tenant ID
+export function getCurrentTenantId(): string | null {
+  return currentTenantId;
+}
+
+// Track if we're already redirecting to avoid multiple redirects
+let isRedirecting = false;
+
+/**
+ * Acquire the headers that authenticate a request to our own API surface.
+ *
+ * Every client that talks to chat-api must send these — the server is
+ * default-deny (issue #646), so an unauthenticated call now gets a 401 rather
+ * than silently succeeding. Shared by the axios interceptors below and by the
+ * fetch-based callers in services/.
+ *
+ * Returns an empty object when a redirect to login has been triggered; the
+ * in-flight request will fail and the page is navigating away regardless.
+ */
+export async function acquireAuthHeaders(context = 'API'): Promise<Record<string, string>> {
+  if (!msalInstance) {
+    // Bypass auth mode: add Admin role header so DAB allows write operations
+    return { 'X-MS-API-ROLE': 'Admin' };
+  }
+
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length === 0) {
+    console.warn(`[${context} Auth] No accounts found, triggering login redirect`);
+    if (!isRedirecting) {
+      isRedirecting = true;
+      await msalInstance.loginRedirect(apiRequest);
+    }
+    return {};
+  }
+
+  const silentRequest: SilentRequest = { ...apiRequest, account: accounts[0] };
+
+  try {
+    const response = await msalInstance.acquireTokenSilent(silentRequest);
+    return {
+      Authorization: `Bearer ${response.accessToken}`,
+      // DAB Simulator needs X-MS-API-ROLE to resolve permissions (production AzureAD provider ignores it)
+      'X-MS-API-ROLE': resolveDabRole(accounts[0]),
+    };
+  } catch (error: any) {
+    console.error(`[${context} Auth] acquireTokenSilent failed:`, error?.name, error?.message, error);
+
+    // Any token acquisition failure: clear cache and force re-login
+    if (!isRedirecting) {
+      isRedirecting = true;
+      console.warn(`[${context} Auth] Clearing cache and forcing re-login...`);
+
+      for (const account of msalInstance.getAllAccounts()) {
+        await msalInstance.clearCache({ account });
+      }
+
+      await msalInstance.loginRedirect(apiRequest);
+    }
+    return {};
+  }
+}
+
+// Request interceptor to add auth token and tenant header
+api.interceptors.request.use(
+  async (config) => {
+    // Add tenant ID header if available
+    if (currentTenantId) {
+      config.headers['X-Tenant-Id'] = currentTenantId;
+    }
+
+    Object.assign(config.headers, await acquireAuthHeaders('API'));
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling auth errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - token may be expired or invalid
+      console.error('Unauthorized request - authentication required');
+      // Could trigger a login redirect here if needed
+    }
+    return Promise.reject(error);
+  }
+);
+
+// GraphQL client - uses a separate axios instance with no baseURL to hit /graphql directly
+const graphqlClient = axios.create({
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add the same auth interceptor to graphQL client
+graphqlClient.interceptors.request.use(
+  async (config) => {
+    Object.assign(config.headers, await acquireAuthHeaders('GraphQL'));
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// GraphQL query helper
+export async function graphql<T = any>(query: string, variables?: Record<string, any>): Promise<T> {
+  const response = await graphqlClient.post('/graphql', { query, variables });
+  if (response.data.errors) {
+    throw new Error(response.data.errors[0]?.message || 'GraphQL error');
+  }
+  return response.data.data;
+}
+
+export default api;
+
+// Bank Transaction Types
+export interface BankTransaction {
+  Id: string;
+  SourceType: string;
+  SourceName: string;
+  SourceAccountId: string;
+  TransactionDate: string;
+  Amount: number;
+  Description: string;
+  Merchant: string;
+  OriginalCategory?: string;
+  SuggestedAccountId?: string | null;
+  SuggestedCategory: string | null;
+  SuggestedMemo: string | null;
+  ConfidenceScore: number;
+  Status: 'Pending' | 'Approved' | 'Rejected' | 'Posted' | 'Excluded' | 'Matched';
+  ApprovedAccountId?: string;
+  ApprovedCategory?: string;
+  ApprovedMemo?: string;
+  JournalEntryId?: string;
+  MatchedPaymentId?: string;
+  MatchedAt?: string;
+  IsPersonal: boolean;
+  VendorId?: string | null;
+  CustomerId?: string | null;
+  ClassId?: string | null;
+  ProjectId?: string | null;
+  Payee?: string | null;
+  BankName?: string;
+  Category?: string;
+}
+
+// Project Types
+export interface Project {
+  Id: string;
+  Name: string;
+  CustomerId: string;
+  Description?: string;
+  Status: 'Active' | 'Completed' | 'OnHold';
+  StartDate?: string;
+  EndDate?: string;
+  // Nullable columns on the DB side — explicit `null` so call sites coalesce safely.
+  BudgetedHours?: number | null;
+  BudgetedAmount?: number | null;
+  EstimatedCost?: number | null;
+  ContractAmount?: number | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface ProjectInput {
+  Name: string;
+  CustomerId: string;
+  Description?: string;
+  Status?: 'Active' | 'Completed' | 'OnHold';
+  StartDate?: string;
+  EndDate?: string;
+  BudgetedHours?: number | null;
+  BudgetedAmount?: number | null;
+  EstimatedCost?: number | null;
+  ContractAmount?: number | null;
+}
+
+// Job Costing (#614)
+export interface JobCostCode {
+  Id: string;
+  ProjectId: string;
+  Code: string;
+  Description: string;
+  // Nullable columns on the DB side — explicit `null` so call sites coalesce safely.
+  BudgetedAmount?: number | null;
+  BudgetedHours?: number | null;
+  SortOrder: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface JobCostCodeInput {
+  ProjectId: string;
+  Code: string;
+  Description: string;
+  BudgetedAmount?: number | null;
+  BudgetedHours?: number | null;
+  SortOrder?: number;
+}
+
+// Time Entry Types
+export interface TimeEntry {
+  Id: string;
+  ProjectId: string;
+  ProjectName: string;
+  CustomerId: string;
+  EmployeeName: string;
+  EntryDate: string;
+  Hours: number;
+  HourlyRate: number;
+  CostRate: number;
+  CostCodeId?: string | null;
+  Description?: string;
+  IsBillable: boolean;
+  Status: 'Pending' | 'Approved' | 'Invoiced';
+  InvoiceLineId?: string;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface TimeEntryInput {
+  ProjectId: string;
+  CustomerId: string;
+  EmployeeName: string;
+  EntryDate: string;
+  Hours: number;
+  HourlyRate?: number | null;
+  CostRate?: number | null;
+  CostCodeId?: string | null;
+  Description?: string | null;
+  IsBillable?: boolean | null;
+  Status?: 'Pending' | 'Approved' | 'Invoiced' | null;
+}
+
+// Customer Type (for reference)
+export interface Customer {
+  Id: string;
+  Name: string;
+  Email?: string;
+  Phone?: string;
+  Address?: string;
+  AddressLine1?: string | null;
+  AddressLine2?: string | null;
+  City?: string | null;
+  State?: string | null;
+  PostalCode?: string | null;
+  Country?: string | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+// Projects API
+export const projectsApi = {
+  getAll: async (): Promise<Project[]> => {
+    const response = await api.get('/projects');
+    return response.data.value;
+  },
+
+  getById: async (id: string): Promise<Project> => {
+    const response = await api.get(`/projects/Id/${id}`);
+    return response.data;
+  },
+
+  create: async (project: ProjectInput): Promise<Project> => {
+    const response = await api.post('/projects_write', project);
+    return response.data;
+  },
+
+  update: async (id: string, project: Partial<ProjectInput>): Promise<Project> => {
+    const response = await api.patch(`/projects_write/Id/${id}`, project);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/projects_write/Id/${id}`);
+  },
+};
+
+// Job Cost Codes API (#614)
+export const jobCostCodesApi = {
+  getByProject: async (projectId: string): Promise<JobCostCode[]> => {
+    // Validate to prevent malformed OData / injection — projectId comes from route params.
+    const validated = formatGuidForOData(projectId, 'ProjectId');
+    const filter = encodeURIComponent(`ProjectId eq ${validated}`);
+    const response = await api.get(
+      `/jobcostcodes?$filter=${filter}&$orderby=SortOrder,Code`
+    );
+    return response.data.value;
+  },
+
+  create: async (input: JobCostCodeInput): Promise<JobCostCode> => {
+    const response = await api.post('/jobcostcodes', input);
+    return response.data;
+  },
+
+  update: async (id: string, input: Partial<JobCostCodeInput>): Promise<JobCostCode> => {
+    const response = await api.patch(`/jobcostcodes/Id/${id}`, input);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/jobcostcodes/Id/${id}`);
+  },
+};
+
+// Time Entries API
+export const timeEntriesApi = {
+  getAll: async (): Promise<TimeEntry[]> => {
+    const response = await api.get('/timeentries');
+    return response.data.value;
+  },
+
+  getById: async (id: string): Promise<TimeEntry> => {
+    const response = await api.get(`/timeentries/Id/${id}`);
+    return response.data;
+  },
+
+  getByProject: async (projectId: string): Promise<TimeEntry[]> => {
+    const response = await api.get(`/timeentries?$filter=ProjectId eq ${projectId}`);
+    return response.data.value;
+  },
+
+  getByDateRange: async (startDate: string, endDate: string): Promise<TimeEntry[]> => {
+    const start = formatDateForOData(startDate);
+    const end = formatDateForOData(endDate, true);
+    const response = await api.get(
+      `/timeentries?$filter=EntryDate ge ${start} and EntryDate le ${end}`
+    );
+    return response.data.value;
+  },
+
+  create: async (entry: TimeEntryInput): Promise<TimeEntry> => {
+    const response = await api.post('/timeentries_write', entry);
+    return response.data;
+  },
+
+  update: async (id: string, entry: Partial<TimeEntryInput>): Promise<TimeEntry> => {
+    const response = await api.patch(`/timeentries_write/Id/${id}`, entry);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/timeentries_write/Id/${id}`);
+  },
+};
+
+// Customers API
+export const customersApi = {
+  getAll: async (): Promise<Customer[]> => {
+    const response = await api.get('/customers');
+    return response.data.value;
+  },
+
+  getById: async (id: string): Promise<Customer> => {
+    const response = await api.get(`/customers/Id/${id}`);
+    return response.data;
+  },
+};
+
+// Employee Type
+export interface Employee {
+  Id: string;
+  EmployeeNumber: string;
+  FirstName: string;
+  LastName: string;
+  FullName: string;
+  Email?: string;
+  Phone?: string;
+  Status: string;
+  HireDate: string;
+  PayType: string;
+  PayRate: number;
+}
+
+// Employees API
+export const employeesApi = {
+  getAll: async (): Promise<Employee[]> => {
+    const response = await api.get('/employees');
+    return response.data.value;
+  },
+
+  getById: async (id: string): Promise<Employee> => {
+    const response = await api.get(`/employees/Id/${id}`);
+    return response.data;
+  },
+};

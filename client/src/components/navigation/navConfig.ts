@@ -1,0 +1,286 @@
+import { LucideIcon, LayoutDashboard, FileText, ClipboardList, Users, Package, Warehouse, Truck, UserCheck, DollarSign, Receipt, FolderOpen, Clock, Tag, MapPin, RefreshCw, Layers, Building2, BookOpen, Upload, Database, Scale, BarChart3, MessageSquare, Sparkles, Settings, ShoppingCart, Percent, CreditCard, FileMinus, Car, ListFilter, Banknote, Mail, History, Calendar, PiggyBank, FileX, FileCheck, Stethoscope } from 'lucide-react';
+import { FeatureKey } from '../../contexts/FeatureFlagsContext';
+import { isCeBuild } from '../../ce/ce-build';
+
+export interface NavItem {
+  id: string;
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  featureKey?: string; // Maps to MA MCP feature key for onboarding
+  alwaysVisible?: boolean; // If true, shown regardless of onboarding state
+  visibilityFlag?: FeatureKey; // Admin-configurable feature flag for visibility
+}
+
+export interface NavGroup {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  items: NavItem[];
+  featureKey?: string; // If set, entire group is gated by this feature
+  visibilityFlag?: FeatureKey; // Admin-configurable feature flag for entire group
+}
+
+export type NavEntry = NavItem | NavGroup;
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return 'items' in entry;
+}
+
+// Feature key mapping to MCP feature keys
+// Items without featureKey are always visible (not part of onboarding)
+const rawNavigationConfig: NavEntry[] = [
+  // Dashboard - always visible
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    href: '/',
+    icon: LayoutDashboard,
+    alwaysVisible: true,
+  },
+
+  // Sales group
+  {
+    id: 'sales',
+    name: 'Sales',
+    icon: FileText,
+    items: [
+      { id: 'invoices', name: 'Invoices', href: '/invoices', icon: FileText, featureKey: 'invoices' },
+      { id: 'receive-payment', name: 'Receive Payment', href: '/payments', icon: Banknote },
+      { id: 'sales-receipts', name: 'Sales Receipts', href: '/sales-receipts', icon: Banknote, featureKey: 'sales_receipts', visibilityFlag: 'sales_receipts' },
+      { id: 'estimates', name: 'Estimates', href: '/estimates', icon: ClipboardList, featureKey: 'estimates' },
+      { id: 'customer-deposits', name: 'Customer Deposits', href: '/customer-deposits', icon: PiggyBank },
+      { id: 'credit-memos', name: 'Credit Memos', href: '/credit-memos', icon: FileX },
+    ],
+  },
+
+  // Purchasing group
+  {
+    id: 'purchasing',
+    name: 'Purchasing',
+    icon: Receipt,
+    items: [
+      { id: 'purchase-orders', name: 'Purchase Orders', href: '/purchase-orders', icon: ShoppingCart },
+      { id: 'bills', name: 'Bills', href: '/bills', icon: Receipt, featureKey: 'bills' },
+      { id: 'vendor-credits', name: 'Vendor Credits', href: '/vendor-credits', icon: FileMinus },
+      { id: 'expenses', name: 'Expenses', href: '/expenses', icon: CreditCard, featureKey: 'expenses' },
+      { id: 'mileage', name: 'Mileage', href: '/mileage', icon: Car, visibilityFlag: 'mileage' },
+    ],
+  },
+
+  // People group
+  {
+    id: 'people',
+    name: 'People',
+    icon: Users,
+    items: [
+      { id: 'customers', name: 'Customers', href: '/customers', icon: Users, featureKey: 'customers' },
+      { id: 'vendors', name: 'Vendors', href: '/vendors', icon: Truck, featureKey: 'vendors' },
+      { id: 'employees', name: 'Employees', href: '/employees', icon: UserCheck },
+    ],
+  },
+
+  // Products & Inventory group
+  {
+    id: 'products',
+    name: 'Products',
+    icon: Package,
+    items: [
+      { id: 'products-services', name: 'Products & Services', href: '/products-services', icon: Package, featureKey: 'products_services' },
+      { id: 'inventory', name: 'Inventory', href: '/inventory', icon: Warehouse, visibilityFlag: 'inventory' },
+    ],
+  },
+
+  // Payroll group - not part of initial onboarding
+  {
+    id: 'payroll',
+    name: 'Payroll',
+    icon: DollarSign,
+    visibilityFlag: 'payroll',
+    items: [
+      { id: 'payruns', name: 'Run Payroll', href: '/payruns', icon: DollarSign },
+      { id: 'time-entries', name: 'Time Tracking', href: '/time-entries', icon: Clock },
+    ],
+  },
+
+  // Projects - standalone
+  {
+    id: 'projects',
+    name: 'Projects',
+    href: '/projects',
+    icon: FolderOpen,
+  },
+
+  // Transactions - standalone
+  {
+    id: 'transactions',
+    name: 'Transactions',
+    href: '/transactions',
+    icon: Database,
+  },
+
+  // Import & Sync group - not part of initial onboarding
+  {
+    id: 'import-sync',
+    name: 'Import & Sync',
+    icon: Building2,
+    items: [
+      { id: 'banking', name: 'Bank Connections', href: '/plaid-connections', icon: Building2 },
+      { id: 'import', name: 'Import', href: '/import', icon: Upload },
+      { id: 'transaction-rules', name: 'Transaction Rules', href: '/transaction-rules', icon: ListFilter },
+    ],
+  },
+
+  // Accounting group
+  {
+    id: 'accounting',
+    name: 'Accounting',
+    icon: BookOpen,
+    items: [
+      { id: 'accounts', name: 'Chart of Accounts', href: '/accounts', icon: Layers, featureKey: 'chart_of_accounts' },
+      { id: 'journal-entries', name: 'Journal Entries', href: '/journal-entries', icon: BookOpen, featureKey: 'journal_entries' },
+      { id: 'tax-rates', name: 'Tax Rates', href: '/tax-rates', icon: Percent },
+      { id: 'tax-settings', name: 'Tax Settings', href: '/tax-settings', icon: Settings },
+      { id: 'terms', name: 'Payment Terms', href: '/terms', icon: FileCheck },
+      { id: 'classes', name: 'Classes', href: '/classes', icon: Tag },
+      { id: 'locations', name: 'Locations', href: '/locations', icon: MapPin },
+      { id: 'recurring', name: 'Recurring', href: '/recurring', icon: RefreshCw },
+      { id: 'accounting-periods', name: 'Closing Books', href: '/accounting-periods', icon: Calendar },
+    ],
+  },
+
+  // Reconciliation - standalone
+  {
+    id: 'reconciliations',
+    name: 'Reconciliation',
+    href: '/reconciliations',
+    icon: Scale,
+  },
+
+  // Practice OS medical - standalone, gated on the medical_rcm add-on (issue #674)
+  {
+    id: 'ar-aging-by-payer',
+    name: 'A/R Aging by Payer',
+    href: '/reports/ar-aging-by-payer',
+    icon: Stethoscope,
+    visibilityFlag: 'medical_rcm',
+  },
+
+  // Practice OS medical - Patient Statements + dunning, gated on the medical_rcm add-on (issue #675)
+  {
+    id: 'patient-statements',
+    name: 'Patient Statements',
+    href: '/reports/patient-statements',
+    icon: Stethoscope,
+    visibilityFlag: 'medical_rcm',
+  },
+
+  // Practice OS medical - PI/WC cases + attorneys + case A/R aging, gated on medical_rcm (issue #676)
+  {
+    id: 'cases',
+    name: 'Cases (PI/WC)',
+    href: '/cases',
+    icon: Stethoscope,
+    visibilityFlag: 'medical_rcm',
+  },
+  {
+    id: 'attorneys',
+    name: 'Attorneys',
+    href: '/attorneys',
+    icon: Stethoscope,
+    visibilityFlag: 'medical_rcm',
+  },
+  {
+    id: 'ar-aging-by-case',
+    name: 'A/R Aging by Case',
+    href: '/reports/ar-aging-by-case',
+    icon: Stethoscope,
+    visibilityFlag: 'medical_rcm',
+  },
+
+  // Reports - standalone
+  {
+    id: 'reports',
+    name: 'Reports',
+    href: '/reports',
+    icon: BarChart3,
+    featureKey: 'reports',
+    alwaysVisible: true,
+  },
+
+  // Feedback - standalone (always visible)
+  {
+    id: 'submissions',
+    name: 'Feedback',
+    href: '/submissions',
+    icon: MessageSquare,
+    alwaysVisible: true,
+  },
+
+  // AI Enhancements - standalone (always visible)
+  {
+    id: 'admin-enhancements',
+    name: 'AI Enhancements',
+    href: '/admin/enhancements',
+    icon: Sparkles,
+    alwaysVisible: true,
+  },
+
+  // Email Reminders - standalone (always visible)
+  {
+    id: 'email-reminders',
+    name: 'Email Reminders',
+    href: '/email-reminders',
+    icon: Mail,
+    alwaysVisible: true,
+  },
+
+  // Audit Log - standalone (always visible)
+  {
+    id: 'audit-log',
+    name: 'Audit Log',
+    href: '/admin/audit-log',
+    icon: History,
+    alwaysVisible: true,
+  },
+
+  // Settings - standalone (always visible)
+  {
+    id: 'settings',
+    name: 'Settings',
+    href: '/settings',
+    icon: Settings,
+    alwaysVisible: true,
+  },
+];
+
+/** Nav ids / groups omitted from Community Edition (Phase 1b). */
+const CE_OMIT_NAV_IDS = new Set([
+  'banking', // Plaid bank connections — CSV import remains under Import
+  'ar-aging-by-payer',
+  'patient-statements',
+  'cases',
+  'attorneys',
+  'ar-aging-by-case',
+  'admin-enhancements',
+]);
+
+function filterCeNavigation(entries: NavEntry[]): NavEntry[] {
+  if (!isCeBuild()) return entries;
+  return entries
+    .filter((entry) => {
+      if (CE_OMIT_NAV_IDS.has(entry.id)) return false;
+      if ('visibilityFlag' in entry && entry.visibilityFlag === 'medical_rcm') return false;
+      return true;
+    })
+    .map((entry) => {
+      if (!isNavGroup(entry)) return entry;
+      return {
+        ...entry,
+        items: entry.items.filter((item) => !CE_OMIT_NAV_IDS.has(item.id)),
+      };
+    })
+    .filter((entry) => !isNavGroup(entry) || entry.items.length > 0);
+}
+
+export const navigationConfig: NavEntry[] = filterCeNavigation(rawNavigationConfig);

@@ -1,0 +1,26 @@
+import { test, expect } from './coverage.fixture';
+
+test('can create invoice with line items', async ({ page }) => {
+  await page.goto('/invoices/new');
+
+  await page.getByLabel('Invoice Number').fill('INV-TEST-CREATE-' + Date.now());
+
+  // Select customer from dropdown
+  await page.getByPlaceholder('Select a customer...').click();
+  await expect(page.locator('.MuiAutocomplete-listbox')).toBeVisible({ timeout: 10000 });
+  await page.locator('.MuiAutocomplete-listbox [role="option"]').first().click();
+
+  await page.getByLabel('Issue Date').fill('2026-01-20');
+  await page.getByLabel('Due Date').fill('2026-02-20');
+
+  await page.locator('input[name="Lines.0.Description"]').fill('Test Item');
+  await page.locator('input[name="Lines.0.Quantity"]').fill('5');
+  await page.locator('input[name="Lines.0.UnitPrice"]').fill('100');
+
+  await expect(page.locator('div.font-bold > span').last()).toContainText('500.00');
+
+  await page.getByRole('button', { name: /Create Invoice/i }).click();
+
+  // Successful creation redirects to invoice list
+  await expect(page).toHaveURL(/\/invoices$/, { timeout: 30000 });
+});

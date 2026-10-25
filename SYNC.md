@@ -5,7 +5,7 @@
 **Cadence:** Manual. **No automated mirror CI** yet.  
 **Policy:** [ADR-0001](./docs/architecture/adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](./docs/prd/ce-vs-paid-feature-matrix.md)  
 **Seams (Phase 1a):** [docs/architecture/ce-seams.md](./docs/architecture/ce-seams.md) (mirrored from private) — path allow/deny, stub contracts, Compose target.  
-**Phase 1b strip plan:** [docs/architecture/ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md) — chat-api + client file/route omit contracts (**Dev implement HOLD**; docs only until PM greenlights).
+**Phase 1b strip plan:** [docs/architecture/ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md) — chat-api + client omit contracts (Dev 1b scaffolding on private; **CE export in this tree**).
 
 ## When to sync
 
@@ -50,17 +50,16 @@ Prefer **export omit** over UI-only hide. Shared leftovers → CE no-op facade, 
 
 Concrete chat-api/client file lists + route prefixes: [ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md). Core AR receive-payment / AP bill-pay stay in CE; Stripe Online Payments / Plaid / live QBO / RCM join / write-agent admin do not.
 
-## Compose target (Slice B runtime export)
+## Compose target (chat-api/client export)
 
-**In (exported):** database, db-init, dab, email-api, csv-import-api.  
-**HOLD (not exported — needs Dev 1b strip per [ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md)):** chat-api, client.  
-**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane, ma-mcp (until Architect review).
+**In (exported):** database, db-init, dab, email-api, csv-import-api, **chat-api** (stripped), **client** (stripped) under Compose profile `app`.  
+**Out:** monitor-agent, live QBO MCP / `qbo-mcp` (unless one-shot approved), managed cloud control plane, `ma-mcp` (deferred until Architect review).
 
-See `docker-compose.ce.yml` + `docs/self-host/ce-boot.md`. Private source SHA: `SYNC-SOURCE.txt`.
+See `docker-compose.ce.yml` + `docs/self-host/ce-boot.md`. Private source SHA: `SYNC-SOURCE.txt` (currently `38e9333c` — post Dev 1b #726).
 
-### Phase 1b plan note (2026-10-25)
+### Phase 1b export note (2026-10-25)
 
-Architect documented exact omit/stub contracts for a future chat-api/client export. **No chat-api/client trees in CE yet.** Developer Phase 1b remains **HOLD** until PM greenlights implement. After that export, `./scripts/assert-ce-paid-leak.sh` + `CE_BUILD` checks in the strip plan must pass before merge.
+Dev 1b strip/stub scaffolding landed on private `main` @ `38e9333c` (#726). This CE tree exports stripped `chat-api/` + `client/` (omit-manifest + CE bridges/facades + `CE_BUILD` / `VITE_CE_BUILD`). One-shot QBO migrate tooling and live QBO auth remain **omitted**. Before merge: `./scripts/assert-ce-paid-leak.sh` + strip-plan `CE_BUILD` checks must pass; Architect boundary review required.
 
 ## Verify before merge
 

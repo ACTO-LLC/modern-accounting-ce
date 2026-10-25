@@ -1,15 +1,15 @@
 # CE package seams (Phase 1a + 1b plan)
 
-**Status:** Phase 1a seams landed; **Phase 1b strip plan** documented — Dev implement **HOLD**  
+**Status:** Phase 1a seams + Phase 1b strip plan landed; Dev 1b scaffolding on private `38e9333c`; **CE chat-api/client export** in flight (DevOps).  
 **Date:** 2026-10-25 (America/Los_Angeles) (1a: 2026-10-24)  
-**Author:** MA Architect  
+**Author:** MA Architect (seams/plan); DevOps export notes amended on CE export PR  
 **Policy:** [ADR-0001](./adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](../prd/ce-vs-paid-feature-matrix.md)  
 **Phase 1b strip plan:** [ce-phase-1b-strip-plan.md](./ce-phase-1b-strip-plan.md) (chat-api + client file/route contracts)  
 **Phase 1a inventory:** [ce-inventory-phase-1a.md](./ce-inventory-phase-1a.md)  
 **Public CE:** `ACTO-LLC/modern-accounting-ce`  
 **Private product:** `ACTO-LLC/modern-accounting`
 
-This document is the **source of truth** for what may copy into the public CE repo. Phase 1a = seams only. Phase 1b Architect = strip **plan** only (no runtime export of chat-api/client until Dev 1b is greenlit).
+This document is the **source of truth** for what may copy into the public CE repo. Phase 1a = seams. Phase 1b = strip plan + private scaffolding + CE export of stripped `chat-api/` + `client/`.
 
 ---
 
@@ -157,7 +157,8 @@ Architect reviews every CE export **PR** (no direct-to-main for runtime trees).
 - [x] This file on private `docs/architecture/ce-seams.md`
 - [x] CE `SYNC.md` + mirrored seams (Phase 1a)
 - [x] Dev Phase 1a: `CE_BUILD` + fail-if-paid Stripe/RCM (#724)
-- [x] DevOps Slice B: database/email-api/csv/dab exported (CE PR #3 @ `7e4c29c`); chat-api/client **still omitted**
+- [x] DevOps Slice B: database/email-api/csv/dab exported (CE PR #3 @ `7e4c29c`)
+- [ ] DevOps chat-api/client export (this PR) — Architect boundary review
 
 ### Phase 1b Architect (this slice — plan only)
 - [x] [ce-phase-1b-strip-plan.md](./ce-phase-1b-strip-plan.md) with file/route contracts
@@ -167,7 +168,7 @@ Architect reviews every CE export **PR** (no direct-to-main for runtime trees).
 
 ## Deferred
 
-- chat-api/client strip + CE export (Developer Phase 1b — **HOLD**, separate PM greenlight)
+- chat-api/client strip scaffolding (Developer Phase 1b — landed private #726); CE export = DevOps (this PR)
 - Continuous mirror CI
 - Public launch security bar (#667-class)
 
