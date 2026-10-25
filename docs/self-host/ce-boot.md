@@ -43,3 +43,14 @@ docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up --bu
 ## Secrets
 
 Never commit `.env` / `.env.ce`. Never set `STRIPE_*`, prod `PLAID_*`, agent `GITHUB_TOKEN`, or RCM join secrets in CE.
+
+## Local auth (CE)
+
+Slice B expects **`BYPASS_AUTH=true`** in `.env.ce` (see `.env.ce.example`). DAB host auth is **Simulator** with localhost CORS only.
+
+The `Users` table still carries Entra/B2C-shaped columns (`EntraObjectId`, `AuthProvider` IN (`EntraID`,`B2C`)) from the private schema. That is intentional leftover shape — **do not** configure Entra ID / B2C SSO or MFA packaging in CE. Post–Dev 1b may introduce a CE-local auth story; until then treat Users rows as optional seed data, not an SSO requirement.
+
+## DAB notes (Slice B)
+
+- Entity `qboconnections` is **omitted** from `dab-config.json` (live QBO + tokens are out of CE). Table DDL may still exist under `database/`.
+- View mappings no longer expose `PrimaryPayerName` / `PayerName` (those columns are not on `v_Invoices` / `v_Payments` / `v_CreditMemos`). Id-only payer fields remain.

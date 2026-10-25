@@ -35,7 +35,7 @@ CREATE TABLE [dbo].[CreditMemos]
     CONSTRAINT [FK_CreditMemos_Customers] FOREIGN KEY ([CustomerId]) REFERENCES [dbo].[Customers]([Id]),
     CONSTRAINT [FK_CreditMemos_JournalEntries] FOREIGN KEY ([JournalEntryId]) REFERENCES [dbo].[JournalEntries]([Id]),
     CONSTRAINT [FK_CreditMemos_Projects] FOREIGN KEY ([ProjectId]) REFERENCES [dbo].[Projects]([Id]),
-    CONSTRAINT [FK_CreditMemos_Classes] FOREIGN KEY ([ClassId]) REFERENCES [dbo].[Classes]([Id])
+    CONSTRAINT [FK_CreditMemos_Classes] FOREIGN KEY ([ClassId]) REFERENCES [dbo].[Classes]([Id]),
     CONSTRAINT [CK_CreditMemos_Status] CHECK ([Status] IN ('Open', 'Applied', 'PartiallyApplied', 'Refunded', 'Voided')),
     CONSTRAINT [CK_CreditMemos_Type] CHECK ([CreditMemoType] IN ('Standard', 'ContractualAdjustment', 'Denial', 'Writeoff')),
     -- Every memo belongs to EXACTLY ONE party: a patient/guarantor (CustomerId) or an insurance payer

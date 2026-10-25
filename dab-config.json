@@ -26,9 +26,7 @@
       "cors": {
         "origins": [
           "http://localhost:5173",
-          "http://localhost:5179",
-          "https://app-modern-accounting-prod.azurewebsites.net",
-          "https://accounting.a-cto.com"
+          "http://localhost:5179"
         ],
         "allow-credentials": true
       },
@@ -650,7 +648,6 @@
         "SourceId": "SourceId",
         "CaseId": "CaseId",
         "PrimaryPayerId": "PrimaryPayerId",
-        "PrimaryPayerName": "PrimaryPayerName",
         "InsuranceResponsibility": "InsuranceResponsibility",
         "PatientResponsibility": "PatientResponsibility",
         "ContractualAdjustment": "ContractualAdjustment",
@@ -2635,55 +2632,6 @@
         "enabled": false
       }
     },
-    "qboconnections": {
-      "source": "dbo.QBOConnections",
-      "permissions": [
-        {
-          "role": "authenticated",
-          "actions": [
-            "*"
-          ]
-        },
-        {
-          "role": "Admin",
-          "actions": [
-            "*"
-          ]
-        },
-        {
-          "role": "Accountant",
-          "actions": [
-            "*"
-          ]
-        },
-        {
-          "role": "Service",
-          "actions": [
-            "*"
-          ]
-        }
-      ],
-      "mappings": {
-        "Id": "Id",
-        "RealmId": "RealmId",
-        "CompanyName": "CompanyName",
-        "AccessToken": "AccessToken",
-        "RefreshToken": "RefreshToken",
-        "TokenExpiry": "TokenExpiry",
-        "RefreshTokenExpiry": "RefreshTokenExpiry",
-        "Environment": "Environment",
-        "IsActive": "IsActive",
-        "LastUsedAt": "LastUsedAt",
-        "CreatedAt": "CreatedAt",
-        "UpdatedAt": "UpdatedAt"
-      },
-      "key-fields": [
-        "Id"
-      ],
-      "cache": {
-        "enabled": false
-      }
-    },
     "payments": {
       "source": {
         "object": "dbo.v_Payments",
@@ -2733,7 +2681,6 @@
         "SourceSystem": "SourceSystem",
         "SourceId": "SourceId",
         "PayerId": "PayerId",
-        "PayerName": "PayerName",
         "CreatedAt": "CreatedAt",
         "UpdatedAt": "UpdatedAt"
       },
@@ -5164,7 +5111,6 @@
         "AdjustmentGroupCode": "AdjustmentGroupCode",
         "AdjustmentReasonCode": "AdjustmentReasonCode",
         "PayerId": "PayerId",
-        "PayerName": "PayerName",
         "JournalEntryId": "JournalEntryId",
         "JournalEntryReference": "JournalEntryReference",
         "CreatedAt": "CreatedAt",

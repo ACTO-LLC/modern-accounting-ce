@@ -73,3 +73,17 @@ test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 
 - Tag CE releases as `ce-vX.Y.Z`
 - Record private source commit SHA in the CE PR description (optional: `SYNC-SOURCE.txt`)
+
+## Known schema leftovers (document, not redesign)
+
+Export keeps core `database/` DDL. Assert skips most of `database/` for paid-pattern noise. Known leftovers that are **not** a Slice B redesign:
+
+| Leftover | Where | CE stance |
+|----------|--------|-----------|
+| RCM-shaped credit memo types / `PayerId` / party checks | `CreditMemos` (+ related) | Columns/constraints stay; paid RCM routes/adapters stay omitted |
+| `PrimaryPayerId` on invoices | `Invoices` / `v_Invoices` | Id only; DAB does not map missing `PrimaryPayerName` |
+| Plaid column stubs | `Employees` (`PlaidItemId`, `PlaidAccountId`), `BankTransactions` (`PlaidTransactionId`, `PlaidAccountId`) | No Plaid services/secrets in CE; columns inert |
+| Entra/B2C Users shape | `Users` | Use `BYPASS_AUTH`; see `docs/self-host/ce-boot.md` |
+| `QBOConnections` table | `database/` | DAB entity omitted; no token exposure via CE DAB |
+
+Do **not** regenerate or commit `database/deploy-script.sql` — `scripts/deploy-db.js` may write one under an output dir at runtime (`--script-only`); that artifact is gitignored / not part of the CE tree.
