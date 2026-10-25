@@ -1,0 +1,36 @@
+# CE one-shot export checklist (DevOps Slice A)
+
+**Repos:** private `ACTO-LLC/modern-accounting` → public `ACTO-LLC/modern-accounting-ce`  
+**Authority:** [ce-seams.md](../architecture/ce-seams.md), [SYNC.md](../../SYNC.md), ADR-0001 + CE vs paid matrix  
+**Process:** Branch → PR → **Architect boundary review** → merge. No direct-to-main for runtime trees. No continuous mirror CI.
+
+## Before copy
+
+1. Record private source SHA (and optional tag).
+2. Read path **allowlist / denylist** in `ce-seams.md`.
+3. Confirm Developer strip (Phase 1b) landed for any runtime dirs you plan to copy — **Slice A does not strip code**.
+
+## Copy
+
+1. Copy **only** allowlisted paths.
+2. Inside allowlisted dirs, **omit** file-level denylist (Plaid jobs, live QBO auth, Stripe, RCM adjudication, etc.).
+3. Refresh `LICENSE`, `NOTICE`, `SYNC.md`, `docker-compose.ce.yml`, `.env.ce.example` if boundaries changed.
+4. Do **not** copy: `monitor-agent/`, `infra/`, secrets, live `qbo-mcp-http-server/` (until approved), commercial license body.
+
+## Scrub
+
+- No `.env` / real Key Vault values / `sk_live` / `sk_test` / `whsec_` / agent write tokens.
+- CE env = `.env.ce.example` placeholders only.
+
+## Verify
+
+```bash
+./scripts/assert-ce-paid-leak.sh
+```
+
+Or manual `rg` from `SYNC.md` / `ce-seams.md`.
+
+## PR
+
+- Title: `ce: export <scope> from private@<sha>`
+- Body: private SHA, allowlist used, assert output, Architect review request.

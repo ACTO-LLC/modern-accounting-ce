@@ -9,6 +9,8 @@
 
 This document is the **source of truth** for what Phase 1b+ may copy into the public CE repo. It does **not** copy runtime code by itself (Phase 1a = seams only).
 
+Mirrored into the public CE repo by DevOps Slice A for SYNC/checklist alignment. Prefer private `main` if the two diverge; reconcile via PR.
+
 ---
 
 ## Goals
@@ -126,9 +128,9 @@ Env: extend `.env.ce.example` only with CE placeholders (SMTP, BYO LLM, SQL). Ne
 ## Phase 1b verify (before CE PR merge)
 
 ```bash
-# From CE worktree — expect no paid markers or secrets
+./scripts/assert-ce-paid-leak.sh
+# or:
 rg -i 'stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|RCM|Fluent.?MedOps|monitor.?agent|Entra|B2C' --glob '!.git'
-# Plaid prod / agent write
 rg -i 'plaid-service|plaid-sync|GITHUB_TOKEN|monitor-agent' --glob '!.git'
 test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 ```
@@ -137,11 +139,11 @@ Architect reviews every CE export **PR** (no direct-to-main for runtime trees).
 
 ---
 
-## Success criteria (this Phase 1a slice)
+## Success criteria (Phase 1a / DevOps Slice A)
 
 - [x] This file on private `docs/architecture/ce-seams.md`
-- [ ] CE repo PR updates `SYNC.md` to point at seams + path tables
-- [ ] No Developer strip code and no DevOps full export in this slice
+- [x] CE repo PR updates `SYNC.md` + mirrors seams + Compose target + assert/checklist
+- [x] No Developer strip code and no DevOps full runtime export in this slice
 
 ## Deferred
 
@@ -149,4 +151,3 @@ Architect reviews every CE export **PR** (no direct-to-main for runtime trees).
 - Continuous mirror CI
 - Client/API file-by-file strip implementation (Developer)
 - Public launch security bar (#667-class)
-
