@@ -45,4 +45,4 @@ Or manual `rg` from `SYNC.md` / `ce-seams.md`.
 - Private source: `38e9333c` (Dev 1b #726 strip/stub scaffolding).
 - Prepared via private `scripts/ce-prepare-export-tree.sh` + `chat-api/src/ce/omit-manifest.json` (npm omits + CE-EXPORT-OMIT markers).
 - Exported: stripped `chat-api/`, stripped `client/`, Compose `chat-api` + `client` under profile `app`, CE-safe `client/.env.example`, updated assert exclusions for `chat-api/src/ce/**` + `client/src/ce/**` + `chat-api/tests/ce-build.test.js`.
-- **Not exported:** `monitor-agent/`, live QBO MCP, `ma-mcp`, paid npm packages (`plaid`, `@octokit/rest`, `react-plaid-link`, `@azure/msal-browser`, `@azure/msal-react`).
+- **Not exported:** `monitor-agent/`, live QBO MCP, `ma-mcp`, `chat-api/scripts/migrate-invoice-lines.js` (qbo-auth), paid npm packages (`plaid`, `@octokit/rest`, `react-plaid-link`, `@azure/msal-browser`, `@azure/msal-react`, `@azure/msal-node`, `intuit-oauth`).
