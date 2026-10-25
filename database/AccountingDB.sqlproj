@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SQL Server Database Project
+
+  This project defines the AccountingDB schema. It can be used for:
+  - Schema visualization in Visual Studio/Azure Data Studio
+  - Building DACPAC files for deployment
+  - Schema comparison between environments
+
+  Build Requirements:
+  - Visual Studio with SQL Server Data Tools (SSDT), OR
+  - Microsoft.Build.Sql SDK for dotnet build
+
+  If neither is available, use the Node.js deployment mode:
+    node scripts/deploy-db.js (with the node flag)
+-->
+<Project DefaultTargets="Build">
+  <Sdk Name="Microsoft.Build.Sql" Version="2.0.0" />
+  <PropertyGroup>
+    <Name>AccountingDB</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033, CI</ModelCollation>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <EnableDefaultSqlItems>false</EnableDefaultSqlItems>
+    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- SQLCMD variable: set to 'false' to skip seed data (production deploys) -->
+    <SqlCmdVariable Include="SeedData">
+      <DefaultValue>true</DefaultValue>
+      <Value>$(SqlCmdVar__1)</Value>
+    </SqlCmdVariable>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Use glob patterns to auto-include all SQL files in each directory -->
+    <Build Include="dbo\Tables\*.sql" />
+    <Build Include="dbo\Views\*.sql" />
+    <Build Include="dbo\StoredProcedures\*.sql" />
+    <Build Include="dbo\Triggers\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PreDeploy Include="Script.PreDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Script.PostDeployment.sql" />
+  </ItemGroup>
+</Project>

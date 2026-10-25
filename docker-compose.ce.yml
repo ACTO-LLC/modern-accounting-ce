@@ -1,12 +1,14 @@
-# Modern Accounting CE — Compose target (Phase 1a / Slice A)
+# Modern Accounting CE — Compose target (Slice B runtime export)
 # Source of truth: docs/architecture/ce-seams.md (+ private same path)
-# Phase 1b (HOLD) exports runtime trees; until then only `database` is runnable.
-# Out of CE Compose: agent-write profile, live QBO MCP, managed control-plane.
+# Out of CE Compose: agent-write profile, live QBO MCP, managed control-plane,
+# chat-api/client (HOLD — needs Developer Phase 1b strip; not in this export).
 #
-# Usage (Phase 0/1a):
-#   docker compose -f docker-compose.ce.yml up
-# After Phase 1b tree export:
-#   docker compose -f docker-compose.ce.yml --profile app up
+# Usage:
+#   cp .env.ce.example .env.ce   # then edit locally; never commit .env.ce
+#   docker compose -f docker-compose.ce.yml --env-file .env.ce up
+#   docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up
+#
+# See docs/self-host/ce-boot.md
 
 services:
   database:
@@ -27,51 +29,75 @@ services:
       retries: 10
       start_period: 30s
 
-  # --- Phase 1b services (enable when allowlisted trees are exported) ---
-  # See ce-seams.md Compose target table. Profiles keep them off until tree lands.
+  db-init:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.db-init
+    container_name: ma-ce-db-init
+    environment:
+      SQL_SERVER: database
+      SQL_PORT: 1433
+      SQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}
+    depends_on:
+      database:
+        condition: service_healthy
 
-  # db-init:
-  #   profiles: ["app"]
-  #   build:
-  #     context: .
-  #     dockerfile: .devcontainer/Dockerfile.db-init
-  #   environment:
-  #     SQL_SERVER: database
-  #     SQL_PORT: 1433
-  #     SQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}
-  #   depends_on:
-  #     database:
-  #       condition: service_healthy
+  dab:
+    profiles: ["app"]
+    image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
+    container_name: ma-ce-dab
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./dab-config.json:/App/dab-config.json
+    environment:
+      DAB_CONNECTION_STRING: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
 
-  # dab:
-  #   profiles: ["app"]
-  #   image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
-  #   depends_on:
-  #     db-init:
-  #       condition: service_completed_successfully
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./dab-config.json:/App/dab-config.json
-  #   environment:
-  #     DAB_CONNECTION_STRING: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
+  email-api:
+    profiles: ["app"]
+    build:
+      context: ./email-api
+      dockerfile: Dockerfile
+    container_name: ma-ce-email-api
+    depends_on:
+      - database
+    ports:
+      - "7073:7073"
+    environment:
+      DATABASE_URL: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
+      EMAIL_API_PORT: "7073"
+      EMAIL_ENCRYPTION_KEY: ${EMAIL_ENCRYPTION_KEY:-change-me-ce-dev-only}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+      DAB_API_URL: http://dab:5000/api
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
 
-  # email-api:
-  #   profiles: ["app"]
-  #   build:
-  #     context: ./email-api
-  #     dockerfile: Dockerfile
-  #   depends_on:
-  #     - database
-  #   ports:
-  #     - "7073:7073"
-  #   environment:
-  #     DATABASE_URL: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
-  #     EMAIL_API_PORT: "7073"
-  #     # SMTP from .env.ce — CE placeholders only
+  csv-import-api:
+    profiles: ["app"]
+    build:
+      context: ./csv-import-api
+      dockerfile: Dockerfile
+    container_name: ma-ce-csv-import-api
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "7072:7072"
+    environment:
+      CSV_IMPORT_PORT: "7072"
+      DATABASE_URL: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
+      # Optional BYO LLM for categorization — CE placeholders only
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
 
-  # csv-import-api:  # add when exported (CE bank CSV)
-  # chat-api / client: profiles ["app"] — stripped trees only (Dev 1b)
+  # chat-api / client: HOLD for Developer Phase 1b strip (not exported in Slice B)
   # ma-mcp: maybe — Architect review before enable
   # live QBO MCP: out of CE
   # agent-write service: out of CE

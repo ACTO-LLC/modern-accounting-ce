@@ -1,4 +1,4 @@
-# CE one-shot export checklist (DevOps Slice A)
+# CE one-shot export checklist (DevOps Slice A/B)
 
 **Repos:** private `ACTO-LLC/modern-accounting` → public `ACTO-LLC/modern-accounting-ce`  
 **Authority:** [ce-seams.md](../architecture/ce-seams.md), [SYNC.md](../../SYNC.md), ADR-0001 + CE vs paid matrix  
@@ -34,3 +34,9 @@ Or manual `rg` from `SYNC.md` / `ce-seams.md`.
 
 - Title: `ce: export <scope> from private@<sha>`
 - Body: private SHA, allowlist used, assert output, Architect review request.
+
+## Slice B notes (2026-10-25)
+
+- Exported: `database/` (RCM/Plaid/payment-processing migrations + RCM-only tables/views omitted), `email-api/` (patient-statement / demand-package routes omitted), `csv-import-api/`, `dab-config.json` (+ development), `.devcontainer/Dockerfile.db-init`, `scripts/deploy-db.js`.
+- **Not exported:** `chat-api/`, `client/` — assert cannot pass without Developer Phase 1b strip; listed on PR as HOLD.
+- Assert: word-boundary tokens; `database/` secret-only scan (shared schema family); skip `package-lock.json` integrity false positives; allow root `README.md`.

@@ -47,12 +47,13 @@
 
 Prefer **export omit** over UI-only hide. Shared leftovers → CE no-op facade, **no** paid SDKs/secrets. CE builds **strip or stub** paid packages — not UI-only hides; no dead Stripe/RCM/agent adapters in the CE tree.
 
-## Compose target (Slice A documented; runtime = Phase 1b)
+## Compose target (Slice B runtime export)
 
-**In (when exported):** database, db-init, dab, email-api, csv-import-api (as applicable), chat-api (stripped), client (stripped).  
-**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane.
+**In (exported):** database, db-init, dab, email-api, csv-import-api.  
+**HOLD (not exported — needs Dev 1b strip):** chat-api, client.  
+**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane, ma-mcp (until Architect review).
 
-See `docker-compose.ce.yml` header + commented Phase 1b stubs.
+See `docker-compose.ce.yml` + `docs/self-host/ce-boot.md`. Private source SHA: `SYNC-SOURCE.txt`.
 
 ## Verify before merge
 
@@ -72,3 +73,17 @@ test ! -f .env || (echo 'ERROR: .env present' && exit 1)
 
 - Tag CE releases as `ce-vX.Y.Z`
 - Record private source commit SHA in the CE PR description (optional: `SYNC-SOURCE.txt`)
+
+## Known schema leftovers (document, not redesign)
+
+Export keeps core `database/` DDL. Assert skips most of `database/` for paid-pattern noise. Known leftovers that are **not** a Slice B redesign:
+
+| Leftover | Where | CE stance |
+|----------|--------|-----------|
+| RCM-shaped credit memo types / `PayerId` / party checks | `CreditMemos` (+ related) | Columns/constraints stay; paid RCM routes/adapters stay omitted |
+| `PrimaryPayerId` on invoices | `Invoices` / `v_Invoices` | Id only; DAB does not map missing `PrimaryPayerName` |
+| Plaid column stubs | `Employees` (`PlaidItemId`, `PlaidAccountId`), `BankTransactions` (`PlaidTransactionId`, `PlaidAccountId`) | No Plaid services/secrets in CE; columns inert |
+| Entra/B2C Users shape | `Users` | Use `BYPASS_AUTH`; see `docs/self-host/ce-boot.md` |
+| `QBOConnections` table | `database/` | DAB entity omitted; no token exposure via CE DAB |
+
+Do **not** regenerate or commit `database/deploy-script.sql` — `scripts/deploy-db.js` may write one under an output dir at runtime (`--script-only`); that artifact is gitignored / not part of the CE tree.

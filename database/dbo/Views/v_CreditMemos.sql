@@ -1,0 +1,34 @@
+CREATE VIEW [dbo].[v_CreditMemos]
+AS
+SELECT
+    cm.[Id],
+    cm.[CreditMemoNumber],
+    cm.[CustomerId],
+    c.[Name] AS CustomerName,
+    cm.[CreditDate],
+    cm.[Reason],
+    cm.[Subtotal],
+    cm.[TaxAmount],
+    cm.[TotalAmount],
+    cm.[AmountApplied],
+    cm.[AmountRefunded],
+    (cm.[TotalAmount] - cm.[AmountApplied] - cm.[AmountRefunded]) AS BalanceRemaining,
+    cm.[Status],
+    cm.[CreditMemoType],
+    cm.[AdjustmentGroupCode],
+    cm.[AdjustmentReasonCode],
+    cm.[PayerId],
+    cm.[JournalEntryId],
+    je.[Reference] AS JournalEntryReference,
+    cm.[ProjectId],
+    p.[Name] AS ProjectName,
+    cm.[ClassId],
+    cl.[Name] AS ClassName,
+    cm.[CreatedAt],
+    cm.[UpdatedAt]
+FROM [dbo].[CreditMemos] cm
+LEFT JOIN [dbo].[Customers] c ON cm.[CustomerId] = c.[Id]
+LEFT JOIN [dbo].[JournalEntries] je ON cm.[JournalEntryId] = je.[Id]
+LEFT JOIN [dbo].[Projects] p ON cm.[ProjectId] = p.[Id]
+LEFT JOIN [dbo].[Classes] cl ON cm.[ClassId] = cl.[Id]
+GO

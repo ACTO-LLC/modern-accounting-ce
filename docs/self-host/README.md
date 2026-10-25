@@ -7,3 +7,5 @@ Phase 0 stub. Use `docker-compose.ce.yml` + `.env.ce.example` at the repo root.
 - **#630:** script-level pause/unpause only — not the productized cloud control plane.
 
 See [ADR-0001](../architecture/adr-0001-open-core-community-edition.md) and the [CE vs paid matrix](../prd/ce-vs-paid-feature-matrix.md).
+
+- [CE boot walkthrough](./ce-boot.md) (Slice B Compose profile `app`)
