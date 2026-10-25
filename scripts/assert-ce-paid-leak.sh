@@ -18,7 +18,7 @@ if ! command -v rg >/dev/null 2>&1; then
 fi
 
 # Paid capability / secret markers (expect no matches outside docs that discuss policy)
-PAT1='stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|Fluent.?MedOps|monitor.?agent|Entra|B2C'
+PAT1='stripe|STRIPE_|books.?match|zero-touch|write-agent|multi-company|sk_live|sk_test|whsec_|ClaimId|RCM|Fluent.?MedOps|monitor.?agent|Entra|B2C'
 PAT2='plaid-service|plaid-sync|GITHUB_TOKEN|monitor-agent'
 
 # Allow policy docs to mention paid names; fail on code/config/env samples that enable them
