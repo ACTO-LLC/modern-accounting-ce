@@ -1,0 +1,212 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  DataGrid,
+  GridColDef,
+  GridPaginationModel,
+  GridSortModel,
+  GridFilterModel,
+  GridRowParams,
+  GridValidRowModel,
+} from '@mui/x-data-grid';
+
+import api from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import useGridHeight from '../hooks/useGridHeight';
+import useDataGridState from '../hooks/useDataGridState';
+
+interface RestDataGridProps<T extends GridValidRowModel> {
+  // The REST API endpoint (e.g., '/invoices', '/customers')
+  endpoint: string;
+  // Column definitions for the DataGrid
+  columns: GridColDef[];
+  // Optional row click handler
+  onRowClick?: (row: T) => void;
+  // Optional edit path template (e.g., '/invoices/{id}/edit')
+  editPath?: string;
+  // Initial page size
+  initialPageSize?: number;
+  // Available page size options
+  pageSizeOptions?: number[];
+  // Optional custom row ID field (defaults to 'Id')
+  getRowId?: (row: T) => string;
+  // Optional OData filter to always apply
+  baseFilter?: string;
+  // Optional data transformation function
+  transformData?: (data: T[]) => T[];
+  // Grid height
+  height?: number | string;
+  // Enable checkbox selection
+  checkboxSelection?: boolean;
+  // Disable row selection on click
+  disableRowSelectionOnClick?: boolean;
+  // Custom empty state message
+  emptyMessage?: string;
+  // Optional header actions
+  headerActions?: React.ReactNode;
+  // Refresh key to force reload
+  refreshKey?: number;
+  // Unique key for persisting grid state (sort, filter, pagination) to localStorage
+  gridKey?: string;
+}
+
+export default function RestDataGrid<T extends GridValidRowModel>({
+  endpoint,
+  columns,
+  onRowClick,
+  editPath,
+  initialPageSize = 25,
+  pageSizeOptions = [10, 25, 50, 100],
+  getRowId = (row) => (row as unknown as { Id: string }).Id,
+  baseFilter,
+  transformData,
+  height,
+  checkboxSelection = false,
+  disableRowSelectionOnClick = true,
+  emptyMessage = 'No data found.',
+  headerActions,
+  refreshKey = 0,
+  gridKey,
+}: RestDataGridProps<T>) {
+  const navigate = useNavigate();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const autoHeight = useGridHeight(gridRef);
+  const resolvedHeight = height ?? autoHeight;
+
+  const [rows, setRows] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Persisted grid state (sort, filter, pagination) when gridKey is provided
+  const persistedState = useDataGridState({
+    gridKey: gridKey || '__rest-no-persist__',
+    defaultPaginationModel: { page: 0, pageSize: initialPageSize },
+  });
+
+  // Fallback local state when gridKey is not provided
+  const [localPaginationModel, setLocalPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: initialPageSize,
+  });
+  const [localSortModel, setLocalSortModel] = useState<GridSortModel>([]);
+  const [localFilterModel, setLocalFilterModel] = useState<GridFilterModel>({ items: [] });
+
+  // Use persisted state when gridKey is provided, otherwise use local state
+  const paginationModel = gridKey ? persistedState.paginationModel : localPaginationModel;
+  const sortModel = gridKey ? persistedState.sortModel : localSortModel;
+  const filterModel = gridKey ? persistedState.filterModel : localFilterModel;
+  const setPaginationModel = gridKey ? persistedState.onPaginationModelChange : setLocalPaginationModel;
+  const setSortModel = gridKey ? persistedState.onSortModelChange : setLocalSortModel;
+  const setFilterModel = gridKey ? persistedState.onFilterModelChange : setLocalFilterModel;
+
+  // Apply persisted column widths
+  const resolvedColumns = useMemo(
+    () => (gridKey ? persistedState.applyColumnWidths(columns) : columns),
+    [gridKey, persistedState.applyColumnWidths, columns],
+  );
+
+  // Fetch data from REST API
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      let url = endpoint;
+      if (baseFilter) {
+        url += `?$filter=${encodeURIComponent(baseFilter)}`;
+      }
+
+      const response = await api.get<{ value: T[] }>(url);
+      let data = response.data.value || [];
+
+      if (transformData) {
+        data = transformData(data);
+      }
+
+      setRows(data);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [endpoint, baseFilter, transformData]);
+
+  // Fetch data on mount and when dependencies change
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, refreshKey]);
+
+  // Handle row click
+  const handleRowClick = useCallback((params: GridRowParams<T>) => {
+    if (onRowClick) {
+      onRowClick(params.row);
+    } else if (editPath) {
+      const path = editPath.replace('{id}', getRowId(params.row));
+      navigate(path);
+    }
+  }, [onRowClick, editPath, getRowId, navigate]);
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-4">
+        <p className="text-red-600 dark:text-red-400">Error loading data: {error}</p>
+        <button
+          onClick={fetchData}
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {headerActions && (
+        <div className="mb-4 flex justify-end">
+          {headerActions}
+        </div>
+      )}
+      <div ref={gridRef} style={{ height: resolvedHeight, width: '100%' }} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+        <DataGrid
+          rows={rows}
+          columns={resolvedColumns}
+          getRowId={getRowId}
+          loading={loading}
+          // Client-side pagination
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={pageSizeOptions}
+          // Client-side sorting
+          sortModel={sortModel}
+          onSortModelChange={setSortModel}
+          // Client-side filtering
+          filterModel={filterModel}
+          onFilterModelChange={setFilterModel}
+          // Persist column widths
+          onColumnWidthChange={gridKey ? persistedState.onColumnWidthChange : undefined}
+          // Row interaction
+          onRowClick={handleRowClick}
+          checkboxSelection={checkboxSelection}
+          disableRowSelectionOnClick={disableRowSelectionOnClick}
+          // Styling
+          sx={{
+            '& .MuiDataGrid-main': {
+              overflow: 'auto',
+            },
+            '& .MuiDataGrid-virtualScroller': {
+              overflow: 'auto !important',
+            },
+            '& .MuiDataGrid-row:hover': {
+              cursor: editPath || onRowClick ? 'pointer' : 'default',
+            },
+          }}
+          localeText={{
+            noRowsLabel: emptyMessage,
+          }}
+        />
+      </div>
+    </div>
+  );
+}

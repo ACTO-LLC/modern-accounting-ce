@@ -10,9 +10,9 @@
 
 Community Edition is the AGPL core intended for self-hosters and contributors. It does **not** include paid product features (Stripe Pay on Invoice, Books Match, Zero-Touch Banking, live QBO, write-agent, SSO, multi-company, RCM). Those remain in the private product.
 
-## Status (Phase 0)
+## Status
 
-Phase 0 establishes this public repo, AGPL licensing, NOTICE, SYNC.md, and the first CE tree export. Expect rapid iteration; Architect reviews exports before merge.
+Public CE repo with AGPL licensing, NOTICE, SYNC.md, and filtered runtime export (database, email-api, csv-import-api, dab, **stripped chat-api + client**). Self-host via `docker-compose.ce.yml` profile `app`. Architect reviews export PRs before merge. Paid surfaces stay private.
 
 ## Contributing
 

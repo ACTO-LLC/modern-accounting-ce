@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "phase": "1b",
+  "description": "Paths to omit from CE export of chat-api/ + client/. Bridges/facades under chat-api/src/ce/ stay. See docs/architecture/ce-phase-1b-strip-plan.md.",
+  "chatApiOmit": [
+    "plaid-service.js",
+    "plaid-sync.js",
+    "plaid-scheduler.js",
+    "qbo-auth.js",
+    "adjudication-inbound-facade.js",
+    "adjudication-payload-mapper.js",
+    "adjudication-posting-service.js",
+    "settlement-posting-service.js",
+    "src/routes/github.js",
+    "src/services/github.js",
+    "src/routes/deployments.js",
+    "src/services/graph-api.js",
+    "scripts/refresh-qbo-token.js",
+    "tests/plaid-*.js",
+    "tests/adjudication-*.js",
+    "tests/settlement-posting-service.test.js"
+  ],
+  "chatApiNpmOmit": [
+    "plaid",
+    "@octokit/rest"
+  ],
+  "clientOmit": [
+    "src/components/PlaidBankVerification.tsx",
+    "src/components/PlaidLinkButton.tsx",
+    "src/pages/PlaidConnections.tsx",
+    "src/components/QBOConnectButton.tsx",
+    "src/pages/AdminEnhancements.tsx",
+    "src/components/admin",
+    "src/services/enhancementApi.ts",
+    "src/services/enhancementApi.test.ts",
+    "src/hooks/useEnhancements.test.ts",
+    "src/hooks/useEnhancements.ts",
+    "src/pages/Cases.tsx",
+    "src/pages/EditCase.tsx",
+    "src/pages/Attorneys.tsx",
+    "src/pages/EditAttorney.tsx",
+    "src/pages/reports/ARAgingByPayer.tsx",
+    "src/pages/reports/PatientStatements.tsx",
+    "src/pages/reports/CaseARAging.tsx",
+    "tests/plaid-*.spec.ts",
+    "tests/admin-enhancement-e2e.spec.ts",
+    "src/ce/paid-ui.ts",
+    "src/lib/caseAging.ts",
+    "src/lib/patientStatement.ts",
+    "src/lib/patientStatementApi.ts",
+    "src/lib/caseAging.test.ts",
+    "src/lib/patientStatement.test.ts"
+  ],
+  "clientNpmOmit": [
+    "react-plaid-link",
+    "@azure/msal-browser",
+    "@azure/msal-react"
+  ],
+  "notes": [
+    "After omit, point server.js paid imports at chat-api/src/ce/bridges/* (already done on private main via Phase 1b).",
+    "Client App imports paid UI via @ce/paid-ui alias; CE build uses paid-ui.ce.ts stubs.",
+    "Do not block on #699/#712 \u2014 re-inventory when they merge.",
+    "One-shot QBO and ma-mcp deferred per Architect defaults.",
+    "Under VITE_CE_BUILD, vite aliases @azure/msal-* to client/src/ce/stubs so npm omit of msal packages is safe."
+  ],
+  "clientKeep": [
+    "src/ce/**",
+    "src/components/qboSession.ts"
+  ]
+}

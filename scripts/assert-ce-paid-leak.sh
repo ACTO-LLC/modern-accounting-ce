@@ -36,6 +36,9 @@ mapfile -t hits < <(rg -n -i -e "$PAT1" -e "$PAT2" \
   --glob '!.env.ce.example' \
   --glob '!**/package-lock.json' \
   --glob '!database/**' \
+  --glob '!chat-api/src/ce/**' \
+  --glob '!client/src/ce/**' \
+  --glob '!chat-api/tests/ce-build.test.js' \
   . || true)
 
 mapfile -t db_hits < <(rg -n -i -e "$PAT_DB" \

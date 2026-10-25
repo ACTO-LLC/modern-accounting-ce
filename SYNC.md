@@ -5,7 +5,7 @@
 **Cadence:** Manual. **No automated mirror CI** yet.  
 **Policy:** [ADR-0001](./docs/architecture/adr-0001-open-core-community-edition.md) (Accepted) + [CE vs paid matrix](./docs/prd/ce-vs-paid-feature-matrix.md)  
 **Seams (Phase 1a):** [docs/architecture/ce-seams.md](./docs/architecture/ce-seams.md) (mirrored from private) — path allow/deny, stub contracts, Compose target.  
-**Phase 1b strip plan:** [docs/architecture/ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md) — chat-api + client file/route omit contracts (**Dev implement HOLD**; docs only until PM greenlights).
+**Phase 1b strip plan:** [docs/architecture/ce-phase-1b-strip-plan.md](./docs/architecture/ce-phase-1b-strip-plan.md) — chat-api + client omit contracts (Dev 1b scaffolding on private; **CE export in this tree**).
 
 ## When to sync
 

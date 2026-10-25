@@ -38,5 +38,11 @@ Or manual `rg` from `SYNC.md` / `ce-seams.md`.
 ## Slice B notes (2026-10-25)
 
 - Exported: `database/` (RCM/Plaid/payment-processing migrations + RCM-only tables/views omitted), `email-api/` (patient-statement / demand-package routes omitted), `csv-import-api/`, `dab-config.json` (+ development), `.devcontainer/Dockerfile.db-init`, `scripts/deploy-db.js`.
-- **Not exported:** `chat-api/`, `client/` — assert cannot pass without Developer Phase 1b strip; listed on PR as HOLD.
 - Assert: word-boundary tokens; `database/` secret-only scan (shared schema family); skip `package-lock.json` integrity false positives; allow root `README.md`.
+
+## chat-api/client export notes (2026-10-25)
+
+- Private source: `38e9333c` (Dev 1b #726 strip/stub scaffolding).
+- Prepared via private `scripts/ce-prepare-export-tree.sh` + `chat-api/src/ce/omit-manifest.json` (npm omits + CE-EXPORT-OMIT markers).
+- Exported: stripped `chat-api/`, stripped `client/`, Compose `chat-api` + `client` under profile `app`, CE-safe `client/.env.example`, updated assert exclusions for `chat-api/src/ce/**` + `client/src/ce/**` + `chat-api/tests/ce-build.test.js`.
+- **Not exported:** `monitor-agent/`, live QBO MCP, `ma-mcp`, paid npm packages (`plaid`, `@octokit/rest`, `react-plaid-link`, `@azure/msal-browser`, `@azure/msal-react`).

@@ -1,0 +1,761 @@
+/**
+ * Database-Driven Migration Mapper
+ *
+ * Reads field mappings, type mappings, and entity references from the database.
+ * Self-healing: fix mapping issues via SQL without code changes.
+ */
+
+/**
+ * MigrationMapper class - reads mappings from database
+ */
+export class MigrationMapper {
+    constructor(mcp, sourceSystem = 'QBO') {
+        this.mcp = mcp;
+        this.sourceSystem = sourceSystem;
+
+        // Caches (loaded on demand)
+        this.fieldMapsCache = null;
+        this.typeMapsCache = null;
+        this.configCache = null;
+
+        // Entity lookup cache - key: "EntityType:SourceId", value: TargetId
+        this.entityLookupCache = new Map();
+        // Already-migrated cache - key: "EntityType:SourceId", value: TargetId or false
+        this.migratedCache = new Map();
+        // Term name → TermId cache
+        this.termCache = new Map();
+    }
+
+    /**
+     * Load field mappings from database, with hardcoded fallbacks
+     */
+    async getFieldMaps(entityType) {
+        if (!this.fieldMapsCache) {
+            this.fieldMapsCache = {};
+        }
+
+        if (!this.fieldMapsCache[entityType]) {
+            try {
+                const result = await this.mcp.readRecords('migrationfieldmaps', {
+                    filter: `SourceSystem eq '${this.sourceSystem}' and EntityType eq '${entityType}' and IsActive eq true`,
+                    orderby: ['SortOrder asc']
+                });
+                this.fieldMapsCache[entityType] = result.result?.value || [];
+            } catch (e) {
+                console.warn(`[Migration] Failed to load field maps for ${entityType}:`, e.message);
+                this.fieldMapsCache[entityType] = [];
+            }
+
+            // If no DB mappings, use hardcoded fallbacks
+            if (this.fieldMapsCache[entityType].length === 0) {
+                console.log(`[Migration] Using fallback field mappings for ${entityType}`);
+                this.fieldMapsCache[entityType] = this.getDefaultFieldMaps(entityType);
+            }
+        }
+
+        return this.fieldMapsCache[entityType];
+    }
+
+    /**
+     * Hardcoded default field mappings when DB is empty
+     */
+    getDefaultFieldMaps(entityType) {
+        const defaults = {
+            'Customer': [
+                { SourceField: 'DisplayName', TargetField: 'Name', Transform: 'string', DefaultValue: 'Unnamed Customer', IsRequired: true, SortOrder: 1 },
+                { SourceField: 'CompanyName', TargetField: 'Name', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 2 },
+                { SourceField: 'PrimaryEmailAddr.Address', TargetField: 'Email', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 3 },
+                { SourceField: 'PrimaryPhone.FreeFormNumber', TargetField: 'Phone', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 4 },
+                { SourceField: 'BillAddr', TargetField: 'Address', Transform: 'address', DefaultValue: null, IsRequired: false, SortOrder: 5 },
+            ],
+            'Vendor': [
+                { SourceField: 'DisplayName', TargetField: 'Name', Transform: 'string', DefaultValue: 'Unnamed Vendor', IsRequired: true, SortOrder: 1 },
+                { SourceField: 'CompanyName', TargetField: 'Name', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 2 },
+                { SourceField: 'PrimaryEmailAddr.Address', TargetField: 'Email', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 3 },
+                { SourceField: 'PrimaryPhone.FreeFormNumber', TargetField: 'Phone', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 4 },
+                { SourceField: 'BillAddr', TargetField: 'Address', Transform: 'address', DefaultValue: null, IsRequired: false, SortOrder: 5 },
+                { SourceField: 'Vendor1099', TargetField: 'Is1099Vendor', Transform: 'bool', DefaultValue: 'false', IsRequired: false, SortOrder: 6 },
+                { SourceField: 'TaxIdentifier', TargetField: 'TaxId', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 7 },
+                { SourceField: 'Active', TargetField: 'Status', Transform: 'status', DefaultValue: 'Active', IsRequired: false, SortOrder: 8 },
+            ],
+            'Account': [
+                { SourceField: 'AcctNum', TargetField: 'Code', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 1 },
+                { SourceField: 'Name', TargetField: 'Name', Transform: 'string', DefaultValue: 'Unnamed Account', IsRequired: true, SortOrder: 2 },
+                { SourceField: 'AccountType', TargetField: 'Type', Transform: 'lookup:AccountType', DefaultValue: 'Expense', IsRequired: true, SortOrder: 3 },
+                { SourceField: 'AccountSubType', TargetField: 'Subtype', Transform: 'lookup:AccountSubtype', DefaultValue: null, IsRequired: false, SortOrder: 4 },
+                { SourceField: 'Description', TargetField: 'Description', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 5 },
+                { SourceField: 'Active', TargetField: 'IsActive', Transform: 'bool', DefaultValue: 'true', IsRequired: false, SortOrder: 6 },
+            ],
+            'Invoice': [
+                { SourceField: 'DocNumber', TargetField: 'InvoiceNumber', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 1 },
+                { SourceField: 'CustomerRef.value', TargetField: 'CustomerId', Transform: 'entity:Customer', DefaultValue: null, IsRequired: true, SortOrder: 2 },
+                { SourceField: 'TxnDate', TargetField: 'IssueDate', Transform: 'date', DefaultValue: null, IsRequired: true, SortOrder: 3 },
+                { SourceField: 'DueDate', TargetField: 'DueDate', Transform: 'date', DefaultValue: null, IsRequired: false, SortOrder: 4 },
+                { SourceField: 'TotalAmt', TargetField: 'TotalAmount', Transform: 'float', DefaultValue: '0', IsRequired: false, SortOrder: 5 },
+                { SourceField: 'Balance', TargetField: 'Status', Transform: 'invoicestatus', DefaultValue: 'Sent', IsRequired: false, SortOrder: 6 },
+                { SourceField: 'SalesTermRef.name', TargetField: 'TermId', Transform: 'term', DefaultValue: null, IsRequired: false, SortOrder: 7 },
+            ],
+            'Bill': [
+                { SourceField: 'DocNumber', TargetField: 'BillNumber', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 1 },
+                { SourceField: 'VendorRef.value', TargetField: 'VendorId', Transform: 'entity:Vendor', DefaultValue: null, IsRequired: true, SortOrder: 2 },
+                { SourceField: 'TxnDate', TargetField: 'BillDate', Transform: 'date', DefaultValue: null, IsRequired: true, SortOrder: 3 },
+                { SourceField: 'DueDate', TargetField: 'DueDate', Transform: 'date', DefaultValue: null, IsRequired: false, SortOrder: 4 },
+                { SourceField: 'TotalAmt', TargetField: 'TotalAmount', Transform: 'float', DefaultValue: '0', IsRequired: false, SortOrder: 5 },
+                { SourceField: 'Balance', TargetField: 'Status', Transform: 'billstatus', DefaultValue: 'Open', IsRequired: false, SortOrder: 6 },
+                { SourceField: 'PrivateNote', TargetField: 'Memo', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 7 },
+            ],
+            'Item': [
+                { SourceField: 'Name', TargetField: 'Name', Transform: 'string', DefaultValue: 'Unnamed Item', IsRequired: true, SortOrder: 1 },
+                { SourceField: 'Description', TargetField: 'Description', Transform: 'string', DefaultValue: null, IsRequired: false, SortOrder: 2 },
+                { SourceField: 'UnitPrice', TargetField: 'Price', Transform: 'float', DefaultValue: '0', IsRequired: false, SortOrder: 3 },
+                { SourceField: 'Type', TargetField: 'Type', Transform: 'string', DefaultValue: 'Service', IsRequired: false, SortOrder: 4 },
+                { SourceField: 'Active', TargetField: 'IsActive', Transform: 'bool', DefaultValue: 'true', IsRequired: false, SortOrder: 5 },
+            ],
+        };
+        return defaults[entityType] || [];
+    }
+
+    /**
+     * Load type mappings from database, with hardcoded fallbacks
+     */
+    async getTypeMaps(category) {
+        if (!this.typeMapsCache) {
+            this.typeMapsCache = {};
+        }
+
+        if (!this.typeMapsCache[category]) {
+            try {
+                const result = await this.mcp.readRecords('migrationtypemaps', {
+                    filter: `SourceSystem eq '${this.sourceSystem}' and Category eq '${category}' and IsActive eq true`
+                });
+                this.typeMapsCache[category] = result.result?.value || [];
+            } catch (e) {
+                console.warn(`Failed to load type maps from DB for ${category}:`, e.message);
+                this.typeMapsCache[category] = [];
+            }
+
+            // If no DB mappings, use hardcoded fallbacks
+            if (this.typeMapsCache[category].length === 0) {
+                console.log(`Using hardcoded fallback type mappings for ${category}`);
+                this.typeMapsCache[category] = this.getDefaultTypeMaps(category);
+            }
+        }
+
+        return this.typeMapsCache[category];
+    }
+
+    /**
+     * Hardcoded default type mappings when DB is empty
+     */
+    getDefaultTypeMaps(category) {
+        const defaults = {
+            'AccountType': [
+                // Asset types
+                { SourceValue: 'Bank', TargetValue: 'Asset', IsDefault: false },
+                { SourceValue: 'Other Current Asset', TargetValue: 'Asset', IsDefault: false },
+                { SourceValue: 'Fixed Asset', TargetValue: 'Asset', IsDefault: false },
+                { SourceValue: 'Other Asset', TargetValue: 'Asset', IsDefault: false },
+                { SourceValue: 'Accounts Receivable', TargetValue: 'Asset', IsDefault: false },
+                // Liability types
+                { SourceValue: 'Accounts Payable', TargetValue: 'Liability', IsDefault: false },
+                { SourceValue: 'Credit Card', TargetValue: 'Liability', IsDefault: false },
+                { SourceValue: 'Other Current Liability', TargetValue: 'Liability', IsDefault: false },
+                { SourceValue: 'Long Term Liability', TargetValue: 'Liability', IsDefault: false },
+                // Equity
+                { SourceValue: 'Equity', TargetValue: 'Equity', IsDefault: false },
+                // Revenue
+                { SourceValue: 'Income', TargetValue: 'Revenue', IsDefault: false },
+                { SourceValue: 'Other Income', TargetValue: 'Revenue', IsDefault: false },
+                // Expense (default fallback)
+                { SourceValue: 'Expense', TargetValue: 'Expense', IsDefault: true },
+                { SourceValue: 'Other Expense', TargetValue: 'Expense', IsDefault: false },
+                { SourceValue: 'Cost of Goods Sold', TargetValue: 'Expense', IsDefault: false },
+            ],
+            'AccountSubtype': [
+                // Bank subtypes
+                { SourceValue: 'Checking', TargetValue: 'Cash', IsDefault: false },
+                { SourceValue: 'Savings', TargetValue: 'Cash', IsDefault: false },
+                { SourceValue: 'MoneyMarket', TargetValue: 'Cash', IsDefault: false },
+                { SourceValue: 'CashOnHand', TargetValue: 'Cash', IsDefault: false },
+                // AR/AP
+                { SourceValue: 'AccountsReceivable', TargetValue: 'Accounts Receivable', IsDefault: false },
+                { SourceValue: 'AccountsPayable', TargetValue: 'Accounts Payable', IsDefault: false },
+                // Credit Card
+                { SourceValue: 'CreditCard', TargetValue: 'Credit Card', IsDefault: false },
+                // Expense subtypes
+                { SourceValue: 'AdvertisingPromotional', TargetValue: 'Advertising', IsDefault: false },
+                { SourceValue: 'Auto', TargetValue: 'Auto', IsDefault: false },
+                { SourceValue: 'Insurance', TargetValue: 'Insurance', IsDefault: false },
+                { SourceValue: 'LegalProfessionalFees', TargetValue: 'Professional Fees', IsDefault: false },
+                { SourceValue: 'OfficeGeneralAdministrativeExpenses', TargetValue: 'Office Expense', IsDefault: false },
+                { SourceValue: 'RentOrLeaseOfBuildings', TargetValue: 'Rent', IsDefault: false },
+                { SourceValue: 'Utilities', TargetValue: 'Utilities', IsDefault: false },
+                { SourceValue: 'Travel', TargetValue: 'Travel', IsDefault: false },
+                { SourceValue: 'TravelMeals', TargetValue: 'Meals & Entertainment', IsDefault: false },
+            ],
+            'InvoiceStatus': [
+                { SourceValue: 'Paid', TargetValue: 'Paid', IsDefault: false },
+                { SourceValue: 'Partial', TargetValue: 'Partial', IsDefault: false },
+                { SourceValue: 'Overdue', TargetValue: 'Overdue', IsDefault: false },
+                { SourceValue: 'Open', TargetValue: 'Sent', IsDefault: true },
+            ],
+            'BillStatus': [
+                { SourceValue: 'Paid', TargetValue: 'Paid', IsDefault: false },
+                { SourceValue: 'Partial', TargetValue: 'Partial', IsDefault: false },
+                { SourceValue: 'Open', TargetValue: 'Open', IsDefault: true },
+            ],
+        };
+        return defaults[category] || [];
+    }
+
+    /**
+     * Load config from database
+     */
+    async getConfig(key) {
+        if (!this.configCache) {
+            const result = await this.mcp.readRecords('migrationconfigs', {
+                filter: `SourceSystem eq '${this.sourceSystem}' and IsActive eq true`
+            });
+            this.configCache = {};
+            for (const config of result.result?.value || []) {
+                this.configCache[config.ConfigKey] = config.ConfigValue;
+            }
+        }
+
+        return this.configCache[key];
+    }
+
+    /**
+     * Get value from source object using dot notation path
+     * e.g., 'PrimaryEmailAddr.Address' from { PrimaryEmailAddr: { Address: 'test@example.com' } }
+     */
+    getNestedValue(obj, path) {
+        if (!path || !obj) return undefined;
+
+        const parts = path.split('.');
+        let value = obj;
+
+        for (const part of parts) {
+            if (value === null || value === undefined) return undefined;
+            value = value[part];
+        }
+
+        return value;
+    }
+
+    /**
+     * Apply transform to a value
+     */
+    async applyTransform(value, transform, sourceObj, fieldMap = null) {
+        if (!transform) return value;
+
+        const [transformType, transformArg] = transform.split(':');
+
+        switch (transformType) {
+            case 'string':
+                return value != null ? String(value) : null;
+
+            case 'float':
+                return parseFloat(value) || 0;
+
+            case 'int':
+                return parseInt(value, 10) || 0;
+
+            case 'bool':
+                if (typeof value === 'boolean') return value;
+                if (typeof value === 'string') return value.toLowerCase() === 'true';
+                return Boolean(value);
+
+            case 'date':
+                if (!value) return null;
+                // Return as YYYY-MM-DD string
+                const date = new Date(value);
+                return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+
+            case 'address':
+                return this.formatAddress(value);
+
+            case 'status':
+                // For Active -> Status conversion
+                return value === true || value === 'true' ? 'Active' : 'Inactive';
+
+            case 'lookup':
+                // Look up value in type maps
+                return await this.lookupTypeMap(transformArg, value);
+
+            case 'entity':
+                // Look up entity reference (e.g., CustomerId from QBO customer ID)
+                // Also try name-based fallback for records migrated before source tracking
+                let refName = null;
+                if (fieldMap && fieldMap.SourceField) {
+                    refName = this.getNestedValue(sourceObj, fieldMap.SourceField.replace('.value', '.name'));
+                }
+                return await this.lookupEntity(transformArg, String(value), refName);
+
+            case 'invoicestatus':
+                // Special logic for invoice status based on Balance and TotalAmt
+                return this.calculateInvoiceStatus(sourceObj);
+
+            case 'billstatus':
+                // Special logic for bill status
+                return this.calculateBillStatus(sourceObj);
+
+            case 'term':
+                // Look up or create a payment term by name
+                return await this.lookupOrCreateTerm(value, sourceObj);
+
+            default:
+                return value;
+        }
+    }
+
+    /**
+     * Look up a value in type maps
+     */
+    async lookupTypeMap(category, sourceValue) {
+        const typeMaps = await this.getTypeMaps(category);
+
+        // Find exact match
+        const match = typeMaps.find(m => m.SourceValue === sourceValue);
+        if (match) return match.TargetValue;
+
+        // Find default fallback
+        const defaultMap = typeMaps.find(m => m.IsDefault);
+        if (defaultMap) return defaultMap.TargetValue;
+
+        // Return original value if no mapping
+        return sourceValue;
+    }
+
+    /**
+     * Get DAB table name for an entity type
+     */
+    getTableName(entityType) {
+        // Handle special cases for table naming
+        const tableNameMap = {
+            'Customer': 'customers',
+            'Vendor': 'vendors',
+            'Account': 'accounts',
+            'Invoice': 'invoices',
+            'Bill': 'bills',
+            'Payment': 'payments',
+            'BillPayment': 'billpayments',
+            'JournalEntry': 'journalentries',
+            'Item': 'productsservices'
+        };
+        return tableNameMap[entityType] || entityType.toLowerCase() + 's';
+    }
+
+    /**
+     * Look up entity ID from MigrationEntityMaps or entity table
+     * Falls back to name-based lookup for records migrated before source tracking
+     * Results are cached to avoid repeated lookups
+     */
+    async lookupEntity(entityType, sourceId, entityName = null) {
+        if (!sourceId) return null;
+
+        // Check cache first
+        const cacheKey = `${entityType}:${sourceId}`;
+        if (this.entityLookupCache.has(cacheKey)) {
+            return this.entityLookupCache.get(cacheKey);
+        }
+
+        const tableName = this.getTableName(entityType);
+        let targetId = null;
+
+        // First try the entity table by SourceSystem/SourceId
+        try {
+            const result = await this.mcp.readRecords(tableName, {
+                filter: `SourceSystem eq '${this.sourceSystem}' and SourceId eq '${sourceId}'`,
+                select: 'Id',
+                first: 1
+            });
+
+            if (result.result?.value?.length > 0) {
+                targetId = result.result.value[0].Id;
+            }
+        } catch (e) {
+            // Table might not have SourceSystem/SourceId columns yet
+        }
+
+        // Fallback to MigrationEntityMaps table
+        if (!targetId) {
+            try {
+                const result = await this.mcp.readRecords('migrationentitymaps', {
+                    filter: `SourceSystem eq '${this.sourceSystem}' and EntityType eq '${entityType}' and SourceId eq '${sourceId}'`,
+                    select: 'TargetId',
+                    first: 1
+                });
+
+                if (result.result?.value?.length > 0) {
+                    targetId = result.result.value[0].TargetId;
+                }
+            } catch (e) {
+                // Table might not exist yet
+            }
+        }
+
+        // Final fallback: lookup by name (for records migrated before source tracking)
+        if (!targetId && entityName) {
+            try {
+                const escapedName = entityName.replace(/'/g, "''");
+                const result = await this.mcp.readRecords(tableName, {
+                    filter: `Name eq '${escapedName}'`,
+                    select: 'Id',
+                    first: 1
+                });
+
+                if (result.result?.value?.length > 0) {
+                    console.log(`Found ${entityType} by name fallback: ${entityName}`);
+                    targetId = result.result.value[0].Id;
+                }
+            } catch (e) {
+                // Name lookup failed
+            }
+        }
+
+        // Cache the result (even if null, to avoid repeated failed lookups)
+        this.entityLookupCache.set(cacheKey, targetId);
+        return targetId;
+    }
+
+    /**
+     * Calculate invoice status from QBO invoice data
+     */
+    calculateInvoiceStatus(qboInvoice) {
+        const balance = parseFloat(qboInvoice.Balance) || 0;
+        const total = parseFloat(qboInvoice.TotalAmt) || 0;
+
+        if (balance === 0 && total > 0) return 'Paid';
+        if (balance < total && balance > 0) return 'Partial';
+
+        // Check if overdue
+        if (qboInvoice.DueDate) {
+            const dueDate = new Date(qboInvoice.DueDate);
+            if (dueDate < new Date()) return 'Overdue';
+        }
+
+        return 'Sent';
+    }
+
+    /**
+     * Calculate bill status from QBO bill data
+     */
+    calculateBillStatus(qboBill) {
+        const balance = parseFloat(qboBill.Balance) || 0;
+        const total = parseFloat(qboBill.TotalAmt) || 0;
+
+        if (balance === 0 && total > 0) return 'Paid';
+        if (balance < total && balance > 0) return 'Partial';
+
+        return 'Open';
+    }
+
+    /**
+     * Parse due days from a QBO term name
+     * e.g., "Net 30" → 30, "Due on Receipt" → 0, "Net 60" → 60
+     */
+    parseDueDays(termName) {
+        if (!termName) return 30;
+        const lower = termName.toLowerCase().trim();
+
+        if (lower.includes('receipt') || lower.includes('due on') || lower === 'cod') return 0;
+
+        // Extract number from patterns like "Net 30", "Net-30", "N30"
+        const match = lower.match(/(\d+)/);
+        if (match) return parseInt(match[1], 10);
+
+        return 30; // Default fallback
+    }
+
+    /**
+     * Look up or create a payment term by name
+     * Returns the TermId (GUID)
+     */
+    async lookupOrCreateTerm(termName, sourceObj = null) {
+        if (!termName) return null;
+
+        const normalizedName = termName.trim();
+        if (!normalizedName) return null;
+
+        // Check cache first
+        if (this.termCache.has(normalizedName)) {
+            return this.termCache.get(normalizedName);
+        }
+
+        // Look up by name in Terms table
+        try {
+            const escapedName = normalizedName.replace(/'/g, "''");
+            const result = await this.mcp.readRecords('terms', {
+                filter: `Name eq '${escapedName}'`,
+                select: 'Id',
+                first: 1
+            });
+
+            if (result.result?.value?.length > 0) {
+                const termId = result.result.value[0].Id;
+                this.termCache.set(normalizedName, termId);
+                return termId;
+            }
+        } catch (e) {
+            console.warn(`[Migration] Failed to look up term "${normalizedName}":`, e.message);
+        }
+
+        // Not found - create it
+        try {
+            const dueDays = this.parseDueDays(normalizedName);
+            const sourceId = sourceObj?.SalesTermRef?.value || null;
+
+            await this.mcp.createRecord('terms', {
+                Name: normalizedName,
+                DueDays: dueDays,
+                IsActive: true,
+                SourceSystem: this.sourceSystem,
+                SourceId: sourceId ? String(sourceId) : null,
+            });
+
+            // Read back the created term to get its Id
+            const escapedName = normalizedName.replace(/'/g, "''");
+            const readResult = await this.mcp.readRecords('terms', {
+                filter: `Name eq '${escapedName}'`,
+                select: 'Id',
+                first: 1
+            });
+
+            if (readResult.result?.value?.length > 0) {
+                const termId = readResult.result.value[0].Id;
+                this.termCache.set(normalizedName, termId);
+                console.log(`[Migration] Created term "${normalizedName}" (${dueDays} days) → ${termId}`);
+                return termId;
+            }
+        } catch (e) {
+            console.warn(`[Migration] Failed to create term "${normalizedName}":`, e.message);
+        }
+
+        return null;
+    }
+
+    /**
+     * Format address object to string
+     */
+    formatAddress(addr) {
+        if (!addr) return null;
+
+        const parts = [
+            addr.Line1,
+            addr.Line2,
+            addr.Line3,
+            addr.Line4,
+            [addr.City, addr.CountrySubDivisionCode, addr.PostalCode].filter(Boolean).join(', '),
+            addr.Country
+        ].filter(Boolean);
+
+        return parts.length > 0 ? parts.join('\n') : null;
+    }
+
+    /**
+     * Map a source entity to target format using DB mappings
+     */
+    async mapEntity(entityType, sourceObj) {
+        const fieldMaps = await this.getFieldMaps(entityType);
+
+        const result = {
+            SourceSystem: this.sourceSystem,
+            SourceId: String(sourceObj.Id)
+        };
+        const processedFields = new Set();
+
+        for (const fieldMap of fieldMaps) {
+            // Skip if we already have a value for this target field
+            if (processedFields.has(fieldMap.TargetField) && result[fieldMap.TargetField] != null) {
+                continue;
+            }
+
+            // Get source value
+            let value = this.getNestedValue(sourceObj, fieldMap.SourceField);
+
+            // Apply transform
+            if (value !== undefined && value !== null) {
+                value = await this.applyTransform(value, fieldMap.Transform, sourceObj, fieldMap);
+            }
+
+            // Use default if no value
+            if ((value === undefined || value === null || value === '') && fieldMap.DefaultValue) {
+                value = fieldMap.DefaultValue;
+            }
+
+            // Check required fields
+            if (fieldMap.IsRequired && (value === undefined || value === null || value === '')) {
+                return {
+                    _skipped: true,
+                    _reason: `Required field missing: ${fieldMap.SourceField}`,
+                    _sourceId: sourceObj.Id
+                };
+            }
+
+            if (value !== undefined && value !== null) {
+                result[fieldMap.TargetField] = value;
+                processedFields.add(fieldMap.TargetField);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Record a successful migration in MigrationEntityMaps
+     */
+    async recordMigration(entityType, sourceId, targetId, sourceData = null, authToken = null) {
+        const cacheKey = `${entityType}:${String(sourceId)}`;
+
+        // Update caches immediately
+        this.migratedCache.set(cacheKey, targetId);
+        this.entityLookupCache.set(cacheKey, targetId);
+
+        try {
+            await this.mcp.createRecord('migrationentitymaps', {
+                SourceSystem: this.sourceSystem,
+                EntityType: entityType,
+                SourceId: String(sourceId),
+                TargetId: targetId,
+                SourceData: sourceData ? JSON.stringify(sourceData) : null
+            }, authToken);
+        } catch (e) {
+            // Might already exist, that's OK
+            console.log(`Migration record already exists for ${entityType}:${sourceId}`);
+        }
+    }
+
+    /**
+     * Check if entity was already migrated (with caching)
+     */
+    async wasAlreadyMigrated(entityType, sourceId) {
+        const cacheKey = `${entityType}:${String(sourceId)}`;
+
+        // Check cache first
+        if (this.migratedCache.has(cacheKey)) {
+            const cached = this.migratedCache.get(cacheKey);
+            return cached === false ? null : cached;
+        }
+
+        // First check entity table
+        const tableName = this.getTableName(entityType);
+        let targetId = null;
+
+        try {
+            const result = await this.mcp.readRecords(tableName, {
+                filter: `SourceSystem eq '${this.sourceSystem}' and SourceId eq '${String(sourceId)}'`,
+                select: 'Id',
+                first: 1
+            });
+
+            if (result.result?.value?.length > 0) {
+                targetId = result.result.value[0].Id;
+            }
+        } catch (e) {
+            // Continue to fallback
+        }
+
+        // Fallback to MigrationEntityMaps
+        if (!targetId) {
+            try {
+                const result = await this.mcp.readRecords('migrationentitymaps', {
+                    filter: `SourceSystem eq '${this.sourceSystem}' and EntityType eq '${entityType}' and SourceId eq '${String(sourceId)}'`,
+                    select: 'TargetId',
+                    first: 1
+                });
+
+                if (result.result?.value?.length > 0) {
+                    targetId = result.result.value[0].TargetId;
+                }
+            } catch (e) {
+                // Table might not exist
+            }
+        }
+
+        // Cache result (false means "checked but not migrated")
+        this.migratedCache.set(cacheKey, targetId || false);
+        return targetId;
+    }
+
+    /**
+     * Clear caches (call after updating DB mappings)
+     */
+    clearCache() {
+        this.fieldMapsCache = null;
+        this.typeMapsCache = null;
+        this.configCache = null;
+        this.entityLookupCache.clear();
+        this.migratedCache.clear();
+        this.termCache.clear();
+    }
+
+    /**
+     * Preload entity lookups for a batch of source IDs (reduces MCP calls)
+     */
+    async preloadEntityLookups(entityType, sourceIds) {
+        if (!sourceIds || sourceIds.length === 0) return;
+
+        const tableName = this.getTableName(entityType);
+        const uncachedIds = sourceIds.filter(id => !this.entityLookupCache.has(`${entityType}:${id}`));
+
+        if (uncachedIds.length === 0) return;
+
+        // Build OR filter for batch lookup
+        const sourceIdFilter = uncachedIds.map(id => `SourceId eq '${id}'`).join(' or ');
+
+        try {
+            const result = await this.mcp.readRecords(tableName, {
+                filter: `SourceSystem eq '${this.sourceSystem}' and (${sourceIdFilter})`,
+                select: 'Id,SourceId',
+                first: uncachedIds.length
+            });
+
+            const records = result.result?.value || [];
+            for (const record of records) {
+                const cacheKey = `${entityType}:${record.SourceId}`;
+                this.entityLookupCache.set(cacheKey, record.Id);
+                this.migratedCache.set(cacheKey, record.Id);
+            }
+
+            // Mark unfound IDs as null in cache
+            for (const id of uncachedIds) {
+                const cacheKey = `${entityType}:${id}`;
+                if (!this.entityLookupCache.has(cacheKey)) {
+                    this.entityLookupCache.set(cacheKey, null);
+                    this.migratedCache.set(cacheKey, false);
+                }
+            }
+
+            console.log(`[MIGRATION] Preload ${entityType}: found ${records.length} already migrated out of ${uncachedIds.length} checked`);
+        } catch (e) {
+            console.warn(`[MIGRATION] Preload FAILED for ${entityType}: ${e.message}`);
+        }
+    }
+}
+
+/**
+ * Generate next available account code based on type
+ */
+export function generateAccountCode(type, existingCodes = [], startCode = 1000) {
+    const typeRanges = {
+        'Asset': { start: 1000, end: 1999 },
+        'Liability': { start: 2000, end: 2999 },
+        'Equity': { start: 3000, end: 3999 },
+        'Revenue': { start: 4000, end: 4999 },
+        'Expense': { start: 5000, end: 9999 }
+    };
+
+    const range = typeRanges[type] || { start: startCode, end: startCode + 999 };
+    const usedCodes = new Set(existingCodes.map(c => parseInt(c, 10)));
+
+    for (let code = range.start; code <= range.end; code++) {
+        if (!usedCodes.has(code)) {
+            return code.toString();
+        }
+    }
+
+    return `${range.end + 1}`;
+}
+
+export default MigrationMapper;
