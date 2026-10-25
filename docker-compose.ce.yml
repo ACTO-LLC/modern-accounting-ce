@@ -1,16 +1,80 @@
-# Modern Accounting CE — one-box self-host stub (Phase 0)
-# Full service wiring lands in a later CE export. No Stripe/Plaid/agent-write/RCM.
+# Modern Accounting CE — Compose target (Phase 1a / Slice A)
+# Source of truth: docs/architecture/ce-seams.md (+ private same path)
+# Phase 1b (HOLD) exports runtime trees; until then only `database` is runnable.
+# Out of CE Compose: agent-write profile, live QBO MCP, managed control-plane.
+#
+# Usage (Phase 0/1a):
+#   docker compose -f docker-compose.ce.yml up
+# After Phase 1b tree export:
+#   docker compose -f docker-compose.ce.yml --profile app up
+
 services:
-  db:
+  database:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ma-ce-db
+    user: root
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set in .env.ce}"
+      MSSQL_SA_PASSWORD: "${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}"
     ports:
-      - "1433:1433"
+      - "14330:1433"
     volumes:
-      - ce-mssql:/var/opt/mssql
-  # app / dab / client: added when CE runtime tree is exported
+      - ce-sql-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -N -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # --- Phase 1b services (enable when allowlisted trees are exported) ---
+  # See ce-seams.md Compose target table. Profiles keep them off until tree lands.
+
+  # db-init:
+  #   profiles: ["app"]
+  #   build:
+  #     context: .
+  #     dockerfile: .devcontainer/Dockerfile.db-init
+  #   environment:
+  #     SQL_SERVER: database
+  #     SQL_PORT: 1433
+  #     SQL_SA_PASSWORD: ${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+
+  # dab:
+  #   profiles: ["app"]
+  #   image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
+  #   depends_on:
+  #     db-init:
+  #       condition: service_completed_successfully
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./dab-config.json:/App/dab-config.json
+  #   environment:
+  #     DAB_CONNECTION_STRING: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
+
+  # email-api:
+  #   profiles: ["app"]
+  #   build:
+  #     context: ./email-api
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - database
+  #   ports:
+  #     - "7073:7073"
+  #   environment:
+  #     DATABASE_URL: Server=database,1433;Database=AccountingDB;User Id=sa;Password=${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1};TrustServerCertificate=true
+  #     EMAIL_API_PORT: "7073"
+  #     # SMTP from .env.ce — CE placeholders only
+
+  # csv-import-api:  # add when exported (CE bank CSV)
+  # chat-api / client: profiles ["app"] — stripped trees only (Dev 1b)
+  # ma-mcp: maybe — Architect review before enable
+  # live QBO MCP: out of CE
+  # agent-write service: out of CE
 
 volumes:
-  ce-mssql:
+  ce-sql-data:
