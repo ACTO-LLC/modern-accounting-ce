@@ -1,0 +1,84 @@
+CREATE TABLE [dbo].[Invoices]
+(
+    [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    [InvoiceNumber] NVARCHAR(50) NOT NULL,
+    [CustomerId] UNIQUEIDENTIFIER NOT NULL,
+    [IssueDate] DATE NOT NULL,
+    [DueDate] DATE NOT NULL,
+    [Subtotal] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [TaxRateId] UNIQUEIDENTIFIER NULL,
+    [TaxAmount] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [TotalAmount] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [AmountPaid] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [Status] NVARCHAR(20) NOT NULL DEFAULT 'Draft',
+    [SourceSystem] NVARCHAR(50) NULL,
+    [SourceId] NVARCHAR(100) NULL,
+    [PrimaryPayerId] UNIQUEIDENTIFIER NULL,
+    [CaseId] UNIQUEIDENTIFIER NULL,
+    [InsuranceResponsibility] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [PatientResponsibility] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [ContractualAdjustment] DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    [TenantId] UNIQUEIDENTIFIER NULL,
+    [IsPersonal] BIT NOT NULL DEFAULT 0, -- 0 = Business (default), 1 = Personal
+    [ProjectId] UNIQUEIDENTIFIER NULL,
+    [ClassId] UNIQUEIDENTIFIER NULL,
+    [TermId] UNIQUEIDENTIFIER NULL,
+    [CreatedAt] DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    [UpdatedAt] DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+
+    -- Temporal table columns (system-versioned)
+    -- Additional columns from database
+[JournalEntryId] UNIQUEIDENTIFIER NULL,
+    [PostedAt] DATETIME2 NULL,
+    [PostedBy] NVARCHAR(100) NULL,
+    [ValidFrom] DATETIME2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+    [ValidTo] DATETIME2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+    PERIOD FOR SYSTEM_TIME ([ValidFrom], [ValidTo]),
+
+    CONSTRAINT [FK_Invoices_Customers] FOREIGN KEY ([CustomerId]) REFERENCES [dbo].[Customers]([Id]),
+    CONSTRAINT [FK_Invoices_TaxRates] FOREIGN KEY ([TaxRateId]) REFERENCES [dbo].[TaxRates]([Id]),
+    CONSTRAINT [FK_Invoices_Projects] FOREIGN KEY ([ProjectId]) REFERENCES [dbo].[Projects]([Id]),
+    CONSTRAINT [FK_Invoices_Classes] FOREIGN KEY ([ClassId]) REFERENCES [dbo].[Classes]([Id]),
+    CONSTRAINT [FK_Invoices_Terms] FOREIGN KEY ([TermId]) REFERENCES [dbo].[Terms]([Id])
+    -- Reconciliation invariant (Ins + Pat + CA = TotalAmount, matching medplum-eval #24
+    -- validateAdjudicationPayload) is intentionally NOT enforced as a DB CHECK. Per accounting review,
+    -- a hard equality would incorrectly reject legitimate states: draft invoices (splits not yet
+    -- populated), tax computed on TotalAmount, insurance takebacks, COB/secondary payers, and penny
+    -- rounding. It is validated in the adjudication writer (app-side) with a ~$0.05 tolerance instead.
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [dbo].[Invoices_History]))
+GO
+
+ALTER TABLE [dbo].[Invoices]
+ENABLE CHANGE_TRACKING
+WITH (TRACK_COLUMNS_UPDATED = ON)
+GO
+
+CREATE INDEX [IX_Invoices_CustomerId] ON [dbo].[Invoices]([CustomerId])
+GO
+
+CREATE INDEX [IX_Invoices_Source] ON [dbo].[Invoices]([SourceSystem], [SourceId])
+WHERE [SourceSystem] IS NOT NULL
+GO
+
+CREATE INDEX [IX_Invoices_TenantId] ON [dbo].[Invoices]([TenantId])
+WHERE [TenantId] IS NOT NULL
+GO
+
+CREATE INDEX [IX_Invoices_ProjectId] ON [dbo].[Invoices]([ProjectId]) WHERE ProjectId IS NOT NULL
+GO
+
+CREATE INDEX [IX_Invoices_ClassId] ON [dbo].[Invoices]([ClassId]) WHERE ClassId IS NOT NULL
+GO
+
+CREATE INDEX [IX_Invoices_TermId] ON [dbo].[Invoices]([TermId]) WHERE TermId IS NOT NULL
+GO
+
+CREATE UNIQUE INDEX [UQ_Invoices_InvoiceNumber] ON [dbo].[Invoices]([InvoiceNumber])
+GO
+
+CREATE INDEX [IX_Invoices_PrimaryPayerId] ON [dbo].[Invoices]([PrimaryPayerId]) WHERE PrimaryPayerId IS NOT NULL
+GO
+
+CREATE INDEX [IX_Invoices_CaseId] ON [dbo].[Invoices]([CaseId]) WHERE CaseId IS NOT NULL
+GO

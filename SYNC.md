@@ -47,12 +47,13 @@
 
 Prefer **export omit** over UI-only hide. Shared leftovers → CE no-op facade, **no** paid SDKs/secrets. CE builds **strip or stub** paid packages — not UI-only hides; no dead Stripe/RCM/agent adapters in the CE tree.
 
-## Compose target (Slice A documented; runtime = Phase 1b)
+## Compose target (Slice B runtime export)
 
-**In (when exported):** database, db-init, dab, email-api, csv-import-api (as applicable), chat-api (stripped), client (stripped).  
-**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane.
+**In (exported):** database, db-init, dab, email-api, csv-import-api.  
+**HOLD (not exported — needs Dev 1b strip):** chat-api, client.  
+**Out:** monitor-agent, qbo-mcp (unless one-shot approved), managed cloud control plane, ma-mcp (until Architect review).
 
-See `docker-compose.ce.yml` header + commented Phase 1b stubs.
+See `docker-compose.ce.yml` + `docs/self-host/ce-boot.md`. Private source SHA: `SYNC-SOURCE.txt`.
 
 ## Verify before merge
 
