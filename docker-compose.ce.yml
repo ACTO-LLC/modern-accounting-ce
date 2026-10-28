@@ -16,6 +16,9 @@ services:
     user: root
     environment:
       ACCEPT_EULA: "Y"
+      # Express is free for production use (10 GB/database cap). The image default is Developer,
+      # which is licensed for non-production use only. Override with MSSQL_PID if you own a license.
+      MSSQL_PID: "${MSSQL_PID:-Express}"
       MSSQL_SA_PASSWORD: "${SQL_SA_PASSWORD:-ChangeMe_CE_Dev_Password1}"
     ports:
       - "14330:1433"
