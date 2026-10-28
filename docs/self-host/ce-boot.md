@@ -31,6 +31,42 @@ It copies `.env.ce.example` to `.env.ce` if missing, starts the `app` profile, w
 
 **What you should see:** open <http://localhost:5173>. Auth is bypassed (`BYPASS_AUTH=true`), so the app loads straight into the UI with no login. The database starts empty apart from the schema deployed by `db-init`; there is no seed data. First run from source takes roughly 10-20 minutes on a cold Docker cache (SQL Server, .NET SDK and DAB images plus `npm ci` in four services); expect 2 GB+ of RAM for SQL Server.
 
+## Windows
+
+Use WSL2; the quickstart is a bash script and does not run in PowerShell or `cmd`.
+
+1. Install Docker Desktop and enable **Settings, General, Use the WSL 2 based engine**, then enable your distro under **Settings, Resources, WSL integration**.
+2. Install WSL2 with Ubuntu if you don't have it (admin PowerShell, then reboot): `wsl --install -d Ubuntu`.
+3. SQL Server needs about 2 GB of RAM or more. If the stack won't start, raise WSL's limit in `%UserProfile%\.wslconfig` (for example `[wsl2]` then `memory=6GB`), run `wsl --shutdown`, and restart Docker Desktop.
+4. Clone **inside WSL** (your Linux home folder, not `/mnt/c/...`) and run the quickstart there:
+
+```bash
+cd ~ && git clone https://github.com/ACTO-LLC/modern-accounting-ce.git
+```
+
+```bash
+cd modern-accounting-ce && ./scripts/quickstart.sh --images
+```
+
+5. Open <http://localhost:5173> in your normal Windows browser; WSL2 forwards localhost.
+
+Files on the Windows drive are slow, and Windows Git can convert line endings to CRLF, which breaks the scripts with errors like `bad interpreter` or `\r`. If you see those, re-clone from inside WSL.
+
+## Verify it works
+
+CI only checks that the services respond. After a first install, or after bumping the DAB image, click through the app once:
+
+1. <http://localhost:5173> loads with no login screen.
+2. List pages (customers, invoices, accounts) load without error banners. They will be empty; there is no seed data.
+3. Create a record (for example a customer) and refresh. It should persist. This proves reads and writes through DAB work.
+4. <http://localhost:5000/api/openapi> returns JSON.
+
+If something fails, check DAB's logs and include them in any bug report:
+
+```bash
+docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs dab
+```
+
 ## Manual steps
 
 ```bash

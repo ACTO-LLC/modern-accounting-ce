@@ -23,7 +23,7 @@ Requires Docker (SQL Server needs about 2 GB of RAM).
 ./scripts/quickstart.sh            # or build from source (first build ~10-20 min)
 ```
 
-Then open <http://localhost:5173>. Auth is bypassed by default, so there is no login. Stop with `./scripts/quickstart.sh --down`. Details: [docs/self-host/ce-boot.md](docs/self-host/ce-boot.md).
+Then open <http://localhost:5173>. Auth is bypassed by default, so there is no login. On Windows, use WSL2 (see [the Windows steps](docs/self-host/ce-boot.md#windows)). Stop with `./scripts/quickstart.sh --down`. Details: [docs/self-host/ce-boot.md](docs/self-host/ce-boot.md).
 
  Architect reviews export PRs before merge. Paid surfaces stay private.
 
