@@ -60,6 +60,8 @@ Status: all five packages were confirmed public and pullable anonymously on 2026
 
 ## Pinned versions
 
+- SQL Server runs as Express (`MSSQL_PID`, default `Express`). A scan of `database/` and the three Node services found no use of Standard/Enterprise-only features (columnstore, partitioning, in-memory OLTP, SQL Agent, etc.); re-check that before adding any. The 10 GB per-database cap is the practical limit to document for users.
+
 - DAB is pinned to `mcr.microsoft.com/azure-databases/data-api-builder:1.7.90` (a stable tag, replacing the `1.7.83-rc` release candidate). The `boot` job checks DAB responds, not that it handles queries for every entity. When bumping the tag, click through the app as well.
 
 ## Known gaps

@@ -67,6 +67,12 @@ If something fails, check DAB's logs and include them in any bug report:
 docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs dab
 ```
 
+## SQL Server edition and licensing
+
+The `database` container runs SQL Server 2022 as **Express** by default (`MSSQL_PID=Express`), which is free for production use but capped at 10 GB per database, roughly 1.4 GB of buffer pool memory and 4 CPU cores. That is ample for a single-company ledger; if you outgrow it, set `MSSQL_PID` in `.env.ce` to an edition you hold a license for (for example `Standard`).
+
+The SQL Server image's own default is Developer, which Microsoft licenses for non-production use only, so don't rely on it for a live deployment. Check Microsoft's licensing terms for your situation; this is not legal advice.
+
 ## Manual steps
 
 ```bash
