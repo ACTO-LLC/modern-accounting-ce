@@ -65,7 +65,9 @@ export default defineConfig(({ mode }) => {
             ? resolve(__dirname, 'src/ce/paid-ui.ce.ts')
             : resolve(__dirname, 'src/ce/paid-ui.ts'),
         },
-        // CE: omit real MSAL packages from the bundle (npm omit at export)
+        // CE: omit real MSAL packages from the bundle (npm omit at export).
+        // Plaid Link / bank-verification: stub files live at the real import paths
+        // under src/components/ (regex aliases broke Vite id resolution and blanked the SPA).
         ...(isCeBuild
           ? [
               {
@@ -75,15 +77,6 @@ export default defineConfig(({ mode }) => {
               {
                 find: '@azure/msal-react',
                 replacement: resolve(__dirname, 'src/ce/stubs/msal-react.tsx'),
-              },
-              // Stripped paid components still imported by CE pages (Banking, etc.)
-              {
-                find: /PlaidLinkButton$/,
-                replacement: resolve(__dirname, 'src/ce/stubs/PlaidLinkButton.tsx'),
-              },
-              {
-                find: /PlaidBankVerification$/,
-                replacement: resolve(__dirname, 'src/ce/stubs/PlaidBankVerification.tsx'),
               },
             ]
           : []),
