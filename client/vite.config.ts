@@ -28,9 +28,25 @@ function versionManifestPlugin(version: string): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const chatApiUrl = env.VITE_API_URL || env.VITE_CHAT_API_URL || 'http://localhost:8080'
-  const emailApiUrl = env.VITE_EMAIL_API_URL || 'http://localhost:7073'
-  const port = parseInt(env.VITE_PORT) || 5173
+  // Dev-server proxy targets (Node inside the container/host). Prefer DEV_PROXY_* so
+  // Docker Compose can use service DNS (chat-api, email-api) while VITE_* stays as
+  // browser-facing localhost URLs. Read process.env first — loadEnv only merges
+  // process.env over keys that also appear in .env files.
+  const chatApiUrl =
+    process.env.DEV_PROXY_API_URL ||
+    env.DEV_PROXY_API_URL ||
+    process.env.VITE_API_URL ||
+    env.VITE_API_URL ||
+    process.env.VITE_CHAT_API_URL ||
+    env.VITE_CHAT_API_URL ||
+    'http://localhost:8080'
+  const emailApiUrl =
+    process.env.DEV_PROXY_EMAIL_URL ||
+    env.DEV_PROXY_EMAIL_URL ||
+    process.env.VITE_EMAIL_API_URL ||
+    env.VITE_EMAIL_API_URL ||
+    'http://localhost:7073'
+  const port = parseInt(process.env.VITE_PORT || env.VITE_PORT || '', 10) || 5173
 
   // Read version from monorepo root package.json, then client package.json (CE Docker).
   let appVersion = '0.0.0'

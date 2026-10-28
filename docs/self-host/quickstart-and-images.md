@@ -48,9 +48,13 @@ Status: all five packages were confirmed public and pullable anonymously on 2026
 `.github/workflows/ce-boot.yml` runs on pull requests and pushes to `main`:
 
 - `paid-leak` runs `scripts/assert-ce-paid-leak.sh` (installs ripgrep, which the script requires).
-- `boot` runs `./scripts/quickstart.sh` from a clean runner and curls `:5173`, `:5000/api/openapi` and `:8080/api/health`. It builds from source; it does not test the GHCR images.
+- `boot` runs `./scripts/quickstart.sh` from a clean runner and curls `:5173`, `:5000/api/openapi`, `:8080/api/health`, plus `:5173/api/health` and `:5173/api/accounts` (Vite → chat-api proxy). It builds from source; it does not test the GHCR images.
 
 `.github/workflows/ce-images-smoke.yml` covers the published images. It runs `./scripts/quickstart.sh --images` with the same endpoint checks, unauthenticated, so it also fails if a package goes private. It triggers after a successful "Publish CE images" run on `main`, weekly (Mondays 06:17 UTC), and manually from the Actions tab.
+
+### Client proxy in Compose
+
+The browser uses relative `/api` and `/email-api` against the Vite dev server. Vite's proxy runs **inside** the `client` container, so its target cannot be `localhost` (that loopback is the client container). Compose sets `DEV_PROXY_API_URL=http://chat-api:8080` and `DEV_PROXY_EMAIL_URL=http://email-api:7073`. `VITE_*` URLs stay as `http://localhost:…` for anything the browser opens directly. See [ce-boot.md Troubleshooting](./ce-boot.md#troubleshooting).
 
 ## Reproducible installs
 
