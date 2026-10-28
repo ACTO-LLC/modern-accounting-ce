@@ -33,7 +33,7 @@ It copies `.env.ce.example` to `.env.ce` if missing, starts the `app` profile, w
 
 ## Windows
 
-Use WSL2; the quickstart is a bash script and does not run in PowerShell or `cmd`.
+**Preferred:** use WSL2. The quickstart script is bash and does not run in PowerShell or `cmd`.
 
 1. Install Docker Desktop and enable **Settings, General, Use the WSL 2 based engine**, then enable your distro under **Settings, Resources, WSL integration**.
 2. Install WSL2 with Ubuntu if you don't have it (admin PowerShell, then reboot): `wsl --install -d Ubuntu`.
@@ -52,6 +52,15 @@ cd modern-accounting-ce && ./scripts/quickstart.sh --images
 
 Files on the Windows drive are slow, and Windows Git can convert line endings to CRLF, which breaks the scripts with errors like `bad interpreter` or `\r`. If you see those, re-clone from inside WSL.
 
+**PowerShell alternative:** if the repo is already on a Windows path and you only need Compose (not `quickstart.sh`):
+
+```powershell
+Copy-Item .env.ce.example .env.ce -ErrorAction SilentlyContinue
+docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app up -d
+```
+
+You still need Docker Desktop with the WSL2 engine. Prefer the WSL clone + `./scripts/quickstart.sh` path for first-time installs.
+
 ## Verify it works
 
 CI only checks that the services respond. After a first install, or after bumping the DAB image, click through the app once:
@@ -66,6 +75,52 @@ If something fails, check DAB's logs and include them in any bug report:
 ```bash
 docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs dab
 ```
+
+## Troubleshooting
+
+### Port already in use (`14330`, `5173`, `5000`, …)
+
+Compose publishes SQL on **14330**, DAB on **5000**, csv-import on **7072**, email-api on **7073**, chat-api on **8080**, and the client on **5173**. If Docker reports `bind: Only one usage of each socket address…`, something else on the host already holds that port.
+
+```bash
+docker ps --filter publish=14330
+# Windows PowerShell:
+# Get-NetTCPConnection -LocalPort 14330 -ErrorAction SilentlyContinue
+```
+
+Stop the conflicting container or process, or change the left-hand side of the port mapping in `docker-compose.ce.yml` (and matching URLs in `.env.ce`).
+
+### Red Vite error overlay on `:5173`
+
+Usually a stale prebuilt `client` image (missing CE stubs) or a failed module resolve. Pull again, or build the client from source:
+
+```bash
+docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app pull client
+docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app up -d --force-recreate client
+```
+
+```bash
+docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up -d --build --force-recreate client
+```
+
+Hard-refresh the browser after recreate.
+
+### List pages show errors but `:8080/api/health` is fine
+
+The SPA calls `/api` on the Vite dev server; Vite proxies to chat-api. Inside Compose that proxy must use Docker service DNS (`http://chat-api:8080`), not `localhost` (that is the client container). `docker-compose.ce.yml` sets `DEV_PROXY_API_URL` / `DEV_PROXY_EMAIL_URL` for this. Confirm they are present:
+
+```bash
+docker exec ma-ce-client printenv DEV_PROXY_API_URL DEV_PROXY_EMAIL_URL
+```
+
+Then:
+
+```bash
+curl -fsS http://localhost:5173/api/health
+curl -fsS http://localhost:5173/api/accounts
+```
+
+If the direct chat-api health check works but these fail, recreate the client after pulling this repo revision.
 
 ## SQL Server edition and licensing
 

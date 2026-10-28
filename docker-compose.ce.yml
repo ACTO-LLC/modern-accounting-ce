@@ -145,14 +145,19 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # Browser calls published host ports (not Docker DNS names)
+      # Browser calls published host ports (not Docker DNS names).
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
-      VITE_CHAT_API_URL: ${VITE_API_URL:-http://localhost:8080}
+      VITE_CHAT_API_URL: ${VITE_CHAT_API_URL:-${VITE_API_URL:-http://localhost:8080}}
       VITE_EMAIL_API_URL: ${VITE_EMAIL_API_URL:-http://localhost:7073}
       VITE_DAB_URL: ${VITE_DAB_URL:-http://localhost:5000}
       VITE_BYPASS_AUTH: ${VITE_BYPASS_AUTH:-true}
       VITE_CE_BUILD: ${VITE_CE_BUILD:-true}
       VITE_PORT: "5173"
+      # Vite's /api and /email-api proxies run inside this container — localhost
+      # here is not the host. Point at Compose service DNS (override only if you
+      # change service names). Not a VITE_* var on purpose (not for the browser).
+      DEV_PROXY_API_URL: ${DEV_PROXY_API_URL:-http://chat-api:8080}
+      DEV_PROXY_EMAIL_URL: ${DEV_PROXY_EMAIL_URL:-http://email-api:7073}
     volumes:
       # vite.config reads monorepo root package.json for __APP_VERSION__
       - ./package.json:/package.json:ro

@@ -28,7 +28,10 @@ jobs:
         run: |
           curl -fsS http://localhost:5173 >/dev/null
           curl -fsS http://localhost:5000/api/openapi >/dev/null
-          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/api/health >/dev/null
+          # Through the Vite /api proxy (catches Docker localhost proxy misconfig)
+          curl -fsS http://localhost:5173/api/health >/dev/null
+          curl -fsS http://localhost:5173/api/accounts | grep -q '"value"'
       - name: Dump logs on failure
         if: failure()
         run: docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs --no-color --tail=200
