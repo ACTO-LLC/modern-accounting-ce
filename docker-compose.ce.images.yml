@@ -1,0 +1,22 @@
+# Override that swaps source builds for prebuilt GHCR images (published by
+# .github/workflows/publish-images.yml). Layer it on the base file:
+#
+#   docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml \
+#     --env-file .env.ce --profile app up -d
+#
+# Or just run: ./scripts/quickstart.sh --images
+#
+# Pin a release with CE_IMAGE_TAG (default: latest), e.g. CE_IMAGE_TAG=1.3.1
+# Use a fork's registry with CE_IMAGE_REPO (default: ghcr.io/acto-llc/modern-accounting-ce)
+
+services:
+  db-init:
+    image: ${CE_IMAGE_REPO:-ghcr.io/acto-llc/modern-accounting-ce}/db-init:${CE_IMAGE_TAG:-latest}
+  email-api:
+    image: ${CE_IMAGE_REPO:-ghcr.io/acto-llc/modern-accounting-ce}/email-api:${CE_IMAGE_TAG:-latest}
+  csv-import-api:
+    image: ${CE_IMAGE_REPO:-ghcr.io/acto-llc/modern-accounting-ce}/csv-import-api:${CE_IMAGE_TAG:-latest}
+  chat-api:
+    image: ${CE_IMAGE_REPO:-ghcr.io/acto-llc/modern-accounting-ce}/chat-api:${CE_IMAGE_TAG:-latest}
+  client:
+    image: ${CE_IMAGE_REPO:-ghcr.io/acto-llc/modern-accounting-ce}/client:${CE_IMAGE_TAG:-latest}

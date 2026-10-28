@@ -1,0 +1,35 @@
+name: CE clean-start boot
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  paid-leak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/assert-ce-paid-leak.sh
+
+  boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack from scratch
+        run: ./scripts/quickstart.sh
+        env:
+          QUICKSTART_TIMEOUT: "1500"
+      - name: Smoke test endpoints
+        run: |
+          curl -fsS http://localhost:5173 >/dev/null
+          curl -fsS http://localhost:5000/api/openapi >/dev/null
+          curl -fsS http://localhost:8080/api/health
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs --no-color --tail=200
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app down -v
