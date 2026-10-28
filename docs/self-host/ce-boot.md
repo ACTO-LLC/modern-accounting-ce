@@ -24,12 +24,13 @@
 ```bash
 ./scripts/quickstart.sh            # build from source
 ./scripts/quickstart.sh --images   # pull prebuilt GHCR images instead (much faster)
+./scripts/quickstart.sh --demo     # also load sample invoices, bills and payments (see below)
 ./scripts/quickstart.sh --down     # stop (data volume is kept)
 ```
 
 It copies `.env.ce.example` to `.env.ce` if missing, starts the `app` profile, waits for DAB, chat-api and the client to respond, then prints the URL.
 
-**What you should see:** open <http://localhost:5173>. Auth is bypassed (`BYPASS_AUTH=true`), so the app loads straight into the UI with no login. The database starts empty apart from the schema deployed by `db-init`; there is no seed data. First run from source takes roughly 10-20 minutes on a cold Docker cache (SQL Server, .NET SDK and DAB images plus `npm ci` in four services); expect 2 GB+ of RAM for SQL Server.
+**What you should see:** open <http://localhost:5173>. Auth is bypassed (`BYPASS_AUTH=true`), so the app loads straight into the UI with no login. `db-init` deploys the schema plus starter master data: a chart of accounts, 8 customers, 8 vendors, products and services, and a few projects. There are no transactions, so the dashboard and A/R / A/P are empty until you add some or load [sample data](#sample-data-and-starting-clean). First run from source takes roughly 10-20 minutes on a cold Docker cache (SQL Server, .NET SDK and DAB images plus `npm ci` in four services); expect 2 GB+ of RAM for SQL Server.
 
 ## Windows
 
@@ -66,7 +67,7 @@ You still need Docker Desktop with the WSL2 engine. Prefer the WSL clone + `./sc
 CI only checks that the services respond. After a first install, or after bumping the DAB image, click through the app once:
 
 1. <http://localhost:5173> loads with no login screen.
-2. List pages (customers, invoices, accounts) load without error banners. They will be empty; there is no seed data.
+2. List pages (customers, invoices, accounts) load without error banners. Customers and accounts show the starter master data; invoices are empty unless you loaded sample data.
 3. Create a record (for example a customer) and refresh. It should persist. This proves reads and writes through DAB work.
 4. <http://localhost:5000/api/openapi> returns JSON.
 
@@ -75,6 +76,32 @@ If something fails, check DAB's logs and include them in any bug report:
 ```bash
 docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs dab
 ```
+
+## Sample data and starting clean
+
+To try the app with realistic books, load sample data. It is generated relative to the day you run it, so the dashboard always looks current:
+
+- About 3 months of history: invoices, vendor bills (rent, utilities, cloud, software, subcontractors), customer payments and bill payments. Some invoices are paid, some partially paid, and some overdue in each A/R aging bucket; one subcontractor bill is overdue in A/P.
+- The next 3 months come from open items: invoice and bill due dates (Net 15 to Net 90) and open estimates. Nothing is posted with a future date, so the P&L never shows revenue that hasn't been earned.
+- Everything is posted through the app's own invoice, bill and payment posting, and the loader finishes by checking that A/R and A/P tie to the General Ledger.
+
+```bash
+./scripts/quickstart.sh --demo
+```
+
+The loader only runs against books with **no transactions**, so it never mixes with real records. Sample documents are tagged `SourceSystem = 'SampleData'`. `SAMPLE_DATA_SEED=2 ./scripts/quickstart.sh --demo` gives a different (but repeatable) data set.
+
+To throw everything away and start with clean books (for example before entering real data, or to reload sample data), use `--reset`. It **permanently deletes the database volume**, asks you to type `reset` to confirm, then redeploys the schema and starter master data:
+
+```bash
+./scripts/quickstart.sh --reset
+```
+
+```bash
+./scripts/quickstart.sh --reset --demo
+```
+
+Without a terminal (CI, scripts), add `--yes` to confirm. To run the loader yourself against a running stack, use `docker compose -f docker-compose.ce.yml --env-file .env.ce run --rm sample-data --help`, or `node scripts/sample-data/run.mjs --help` (Node 18+) against the published ports.
 
 ## Troubleshooting
 
