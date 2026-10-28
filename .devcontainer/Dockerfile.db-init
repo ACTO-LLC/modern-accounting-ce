@@ -11,8 +11,8 @@ RUN dotnet build database/AccountingDB.sqlproj -c Release -o /dacpac
 # the Node.js post-deploy script may invoke dotnet/sqlpackage directly.)
 FROM mcr.microsoft.com/dotnet/sdk:8.0-noble
 
-# Install Node.js 20 (needed for post-deploy migrations)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Install Node.js 22 (needed for post-deploy migrations)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,9 +25,9 @@ WORKDIR /app
 # Copy DACPAC from build stage
 COPY --from=build /dacpac/ ./dacpac/
 
-# Copy package files and install mssql (for migrations)
+# Copy package files and install mssql from the lockfile (for migrations)
 COPY package*.json ./
-RUN npm install mssql
+RUN npm ci --omit=dev
 
 # Copy database project (for migrations) and deploy script
 COPY database/ ./database/

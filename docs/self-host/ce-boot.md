@@ -19,7 +19,19 @@
 
 **Not in CE Compose:** `ma-mcp` (deferred), live QBO MCP, `monitor-agent` / write-agent.
 
-## Steps
+## Quick start
+
+```bash
+./scripts/quickstart.sh            # build from source
+./scripts/quickstart.sh --images   # pull prebuilt GHCR images instead (much faster)
+./scripts/quickstart.sh --down     # stop (data volume is kept)
+```
+
+It copies `.env.ce.example` to `.env.ce` if missing, starts the `app` profile, waits for DAB, chat-api and the client to respond, then prints the URL.
+
+**What you should see:** open <http://localhost:5173>. Auth is bypassed (`BYPASS_AUTH=true`), so the app loads straight into the UI with no login. The database starts empty apart from the schema deployed by `db-init`; there is no seed data. First run from source takes roughly 10-20 minutes on a cold Docker cache (SQL Server, .NET SDK and DAB images plus `npm ci` in four services); expect 2 GB+ of RAM for SQL Server.
+
+## Manual steps
 
 ```bash
 # 0) Verify no paid leaks
@@ -34,6 +46,9 @@ docker compose -f docker-compose.ce.yml --env-file .env.ce up database
 
 # 3) Full app profile (db-init → dab → email/csv → chat-api → client)
 docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up --build
+
+# Or pull prebuilt images instead of building
+docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app up -d
 ```
 
 ## Checks
