@@ -57,19 +57,30 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(appVersion),
     },
     resolve: {
-      alias: {
+      alias: [
         // CE Phase 1b: paid UI barrel swaps to stubs when VITE_CE_BUILD is on
-        '@ce/paid-ui': isCeBuild
-          ? resolve(__dirname, 'src/ce/paid-ui.ce.ts')
-          : resolve(__dirname, 'src/ce/paid-ui.ts'),
-        // CE: omit real MSAL packages from the bundle (npm omit at export)
+        {
+          find: '@ce/paid-ui',
+          replacement: isCeBuild
+            ? resolve(__dirname, 'src/ce/paid-ui.ce.ts')
+            : resolve(__dirname, 'src/ce/paid-ui.ts'),
+        },
+        // CE: omit real MSAL packages from the bundle (npm omit at export).
+        // Plaid Link / bank-verification: stub files live at the real import paths
+        // under src/components/ (regex aliases broke Vite id resolution and blanked the SPA).
         ...(isCeBuild
-          ? {
-              '@azure/msal-browser': resolve(__dirname, 'src/ce/stubs/msal-browser.ts'),
-              '@azure/msal-react': resolve(__dirname, 'src/ce/stubs/msal-react.tsx'),
-            }
-          : {}),
-      },
+          ? [
+              {
+                find: '@azure/msal-browser',
+                replacement: resolve(__dirname, 'src/ce/stubs/msal-browser.ts'),
+              },
+              {
+                find: '@azure/msal-react',
+                replacement: resolve(__dirname, 'src/ce/stubs/msal-react.tsx'),
+              },
+            ]
+          : []),
+      ],
     },
     plugins: [
       react(),
