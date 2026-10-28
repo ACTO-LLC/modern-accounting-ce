@@ -50,6 +50,8 @@ Status: all five packages were confirmed public and pullable anonymously on 2026
 - `paid-leak` runs `scripts/assert-ce-paid-leak.sh` (installs ripgrep, which the script requires).
 - `boot` runs `./scripts/quickstart.sh` from a clean runner and curls `:5173`, `:5000/api/openapi` and `:8080/api/health`. It builds from source; it does not test the GHCR images.
 
+`.github/workflows/ce-images-smoke.yml` covers the published images. It runs `./scripts/quickstart.sh --images` with the same endpoint checks, unauthenticated, so it also fails if a package goes private. It triggers after a successful "Publish CE images" run on `main`, weekly (Mondays 06:17 UTC), and manually from the Actions tab.
+
 ## Reproducible installs
 
 - Lockfiles are committed for the root, `client/`, `chat-api/`, `email-api/` and `csv-import-api/`. All Dockerfiles use `npm ci`.
@@ -62,5 +64,5 @@ Status: all five packages were confirmed public and pullable anonymously on 2026
 
 ## Known gaps
 
-- The `boot` job does not exercise the `--images` path. A job that pulls and starts the published images would close that gap.
+- `ce-images-smoke` only runs after it lands on `main` (workflow_run and schedule triggers use the default branch), so it cannot be exercised from a PR. Run it once manually via **Actions**, **CE prebuilt images smoke**, **Run workflow**.
 - The app starts with an empty database (schema only, no seed data).

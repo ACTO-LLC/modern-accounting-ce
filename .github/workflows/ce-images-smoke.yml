@@ -1,0 +1,36 @@
+name: CE prebuilt images smoke
+
+# Verifies the published GHCR images (not a source build) start the stack.
+# Runs unauthenticated on purpose: it also proves the packages are public.
+on:
+  workflow_run:
+    workflows: ["Publish CE images"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  images:
+    # Skip when the publish run failed; scheduled/manual runs always go.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack from prebuilt images
+        run: ./scripts/quickstart.sh --images
+        env:
+          QUICKSTART_TIMEOUT: "900"
+      - name: Smoke test endpoints
+        run: |
+          curl -fsS http://localhost:5173 >/dev/null
+          curl -fsS http://localhost:5000/api/openapi >/dev/null
+          curl -fsS http://localhost:8080/api/health
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app logs --no-color --tail=200
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.ce.yml -f docker-compose.ce.images.yml --env-file .env.ce --profile app down -v
