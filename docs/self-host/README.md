@@ -1,6 +1,6 @@
 # Self-host (Community Edition)
 
-Phase 0 stub. Use `docker-compose.ce.yml` + `.env.ce.example` at the repo root.
+Run `./scripts/quickstart.sh` (see the CE boot walkthrough below), or use `docker-compose.ce.yml` + `.env.ce.example` at the repo root directly.
 
 - **In CE:** single-company core ledger (when runtime tree is exported), CSV bank, basic SMTP, Milton RO BYO LLM.
 - **Not in CE:** Stripe, Books Match, ZTB depth, live QBO, write monitor-agent, SSO/MFA packaging, multi-company, RCM join, managed cloud UI/SLA.
