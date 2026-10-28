@@ -57,19 +57,37 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(appVersion),
     },
     resolve: {
-      alias: {
+      alias: [
         // CE Phase 1b: paid UI barrel swaps to stubs when VITE_CE_BUILD is on
-        '@ce/paid-ui': isCeBuild
-          ? resolve(__dirname, 'src/ce/paid-ui.ce.ts')
-          : resolve(__dirname, 'src/ce/paid-ui.ts'),
+        {
+          find: '@ce/paid-ui',
+          replacement: isCeBuild
+            ? resolve(__dirname, 'src/ce/paid-ui.ce.ts')
+            : resolve(__dirname, 'src/ce/paid-ui.ts'),
+        },
         // CE: omit real MSAL packages from the bundle (npm omit at export)
         ...(isCeBuild
-          ? {
-              '@azure/msal-browser': resolve(__dirname, 'src/ce/stubs/msal-browser.ts'),
-              '@azure/msal-react': resolve(__dirname, 'src/ce/stubs/msal-react.tsx'),
-            }
-          : {}),
-      },
+          ? [
+              {
+                find: '@azure/msal-browser',
+                replacement: resolve(__dirname, 'src/ce/stubs/msal-browser.ts'),
+              },
+              {
+                find: '@azure/msal-react',
+                replacement: resolve(__dirname, 'src/ce/stubs/msal-react.tsx'),
+              },
+              // Stripped paid components still imported by CE pages (Banking, etc.)
+              {
+                find: /PlaidLinkButton$/,
+                replacement: resolve(__dirname, 'src/ce/stubs/PlaidLinkButton.tsx'),
+              },
+              {
+                find: /PlaidBankVerification$/,
+                replacement: resolve(__dirname, 'src/ce/stubs/PlaidBankVerification.tsx'),
+              },
+            ]
+          : []),
+      ],
     },
     plugins: [
       react(),
