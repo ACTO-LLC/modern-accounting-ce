@@ -44,7 +44,7 @@ services:
 
   dab:
     profiles: ["app"]
-    image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
+    image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.90
     container_name: ma-ce-dab
     depends_on:
       db-init:

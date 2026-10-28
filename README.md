@@ -12,7 +12,20 @@ Community Edition is the AGPL core intended for self-hosters and contributors. I
 
 ## Status
 
-Public CE repo with AGPL licensing, NOTICE, SYNC.md, and filtered runtime export (database, email-api, csv-import-api, dab, **stripped chat-api + client**). Self-host via `docker-compose.ce.yml` profile `app`. Architect reviews export PRs before merge. Paid surfaces stay private.
+Public CE repo with AGPL licensing, NOTICE, SYNC.md, and filtered runtime export (database, email-api, csv-import-api, dab, **stripped chat-api + client**). Self-host via `docker-compose.ce.yml` profile `app`.
+
+## Quick start
+
+Requires Docker (SQL Server needs about 2 GB of RAM).
+
+```bash
+./scripts/quickstart.sh --images   # pull prebuilt images (fastest)
+./scripts/quickstart.sh            # or build from source (first build ~10-20 min)
+```
+
+Then open <http://localhost:5173>. Auth is bypassed by default, so there is no login. Stop with `./scripts/quickstart.sh --down`. Details: [docs/self-host/ce-boot.md](docs/self-host/ce-boot.md).
+
+ Architect reviews export PRs before merge. Paid surfaces stay private.
 
 ## Contributing
 
