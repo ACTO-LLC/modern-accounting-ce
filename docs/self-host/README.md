@@ -9,3 +9,4 @@ Run `./scripts/quickstart.sh` (see the CE boot walkthrough below), or use `docke
 See [ADR-0001](../architecture/adr-0001-open-core-community-edition.md) and the [CE vs paid matrix](../prd/ce-vs-paid-feature-matrix.md).
 
 - [CE boot walkthrough](./ce-boot.md) (Slice B Compose profile `app`)
+- [Quickstart, prebuilt images and CI](./quickstart-and-images.md) (maintainer notes)
