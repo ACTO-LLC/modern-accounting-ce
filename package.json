@@ -8,7 +8,9 @@
     "db:deploy": "node scripts/deploy-db.js",
     "start:docker": "docker compose -f docker-compose.ce.yml up",
     "start:app": "docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app up --build",
-    "quickstart": "./scripts/quickstart.sh"
+    "quickstart": "./scripts/quickstart.sh",
+    "sample-data": "node scripts/sample-data/run.mjs",
+    "test:sample-data": "node --test scripts/sample-data/*.test.mjs"
   },
   "dependencies": {
     "mssql": "^12.2.0"

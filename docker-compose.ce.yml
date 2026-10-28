@@ -162,6 +162,18 @@ services:
       # vite.config reads monorepo root package.json for __APP_VERSION__
       - ./package.json:/package.json:ro
 
+  # One-shot sample-data loader (issue #20). Not started by `up`; run it with
+  # ./scripts/quickstart.sh --demo (or: docker compose ... run --rm sample-data).
+  # Only loads into books with no transactions; see docs/self-host/ce-boot.md.
+  sample-data:
+    profiles: ["demo"]
+    image: node:20-slim
+    volumes:
+      - ./scripts/sample-data:/sample-data:ro
+    environment:
+      API_URL: http://chat-api:8080/api
+    entrypoint: ["node", "/sample-data/run.mjs"]
+
   # ma-mcp: deferred — Architect review before enable
   # live QBO MCP: out of CE
   # agent-write profile and enhancement agent service: out of CE

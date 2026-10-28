@@ -15,6 +15,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - run: ./scripts/assert-ce-paid-leak.sh
 
+  sample-data-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --test scripts/sample-data/*.test.mjs
+
   boot:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -32,6 +41,15 @@ jobs:
           # Through the Vite /api proxy (catches Docker localhost proxy misconfig)
           curl -fsS http://localhost:5173/api/health >/dev/null
           curl -fsS http://localhost:5173/api/accounts | grep -q '"value"'
+      - name: Load sample data (posts through chat-api and checks A/R / A/P tie to the GL)
+        run: docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app run --rm sample-data
+      - name: Sample data is visible and a second load is refused
+        run: |
+          curl -fsS 'http://localhost:5173/api/invoices?$first=1' | grep -q '"InvoiceNumber"'
+          if docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app run --rm sample-data; then
+            echo "sample-data loaded twice; it must refuse books that already have transactions" >&2
+            exit 1
+          fi
       - name: Dump logs on failure
         if: failure()
         run: docker compose -f docker-compose.ce.yml --env-file .env.ce --profile app logs --no-color --tail=200
