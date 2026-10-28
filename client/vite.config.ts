@@ -116,7 +116,12 @@ export default defineConfig(({ mode }) => {
       port,
       strictPort: true,
       host: true,
-      allowedHosts: ['host.docker.internal'],
+      // CE is often opened via an Azure *.cloudapp.azure.com FQDN (or similar).
+      // Vite 5.4+/6 host checks 403 those Host headers unless listed (IPs still work).
+      // Leading-dot entries are suffix matches.
+      allowedHosts: isCeBuild
+        ? ['host.docker.internal', '.cloudapp.azure.com']
+        : ['host.docker.internal'],
       proxy: {
         // All /api and /graphql traffic goes through chat-api, which handles
         // mutations via axios (with audit logging) and proxies GETs to DAB.

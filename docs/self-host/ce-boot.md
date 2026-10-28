@@ -90,6 +90,14 @@ docker ps --filter publish=14330
 
 Stop the conflicting container or process, or change the left-hand side of the port mapping in `docker-compose.ce.yml` (and matching URLs in `.env.ce`).
 
+### FQDN returns 403 / `Blocked request. This host is not allowed`
+
+Vite's host allowlist rejects unknown `Host` headers. CE allows `host.docker.internal` and (for CE builds) `*.cloudapp.azure.com`. Raw IPs work without that list.
+
+- Prefer plain **`http://`** (no TLS on `:5173` / `:5000`). `https://` yields `ERR_SSL_PROTOCOL_ERROR` and looks like DNS failure.
+- Azure VM example: `http://<vm>.westus2.cloudapp.azure.com:5173` or `http://<public-ip>:5173`.
+- If you still 403 on a custom hostname, add it under `server.allowedHosts` in `client/vite.config.ts` (leading-dot suffix match is supported) and recreate the client.
+
 ### Red Vite error overlay on `:5173`
 
 Usually a stale prebuilt `client` image (missing CE stubs) or a failed module resolve. Pull again, or build the client from source:
